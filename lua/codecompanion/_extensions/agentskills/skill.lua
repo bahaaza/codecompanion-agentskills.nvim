@@ -102,7 +102,16 @@ function Skill:run_script(script, args, callback)
       else
         msg = string.format("Script exited with code %d", out.code)
       end
-      callback(false, msg .. "\nSTDERR:\n" .. out.stderr)
+      local output = { msg }
+      if out.stdout and out.stdout ~= "" then
+        table.insert(output, "Standard Output:")
+        table.insert(output, out.stdout)
+      end
+      if out.stderr and out.stderr ~= "" then
+        table.insert(output, "Standard Error:")
+        table.insert(output, out.stderr)
+      end
+      callback(false, table.concat(output, "\n"))
     end
   end)
 end

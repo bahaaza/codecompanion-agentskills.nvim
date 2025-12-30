@@ -85,10 +85,18 @@ function Tools.activate_skill()
       end,
     },
     output = {
-      success = function(self, tools, cmd, stdout)
-        local skill = stdout[#stdout] ---@type CodeCompanion.AgentSkills.Skill
+      success = function(self, tools, cmd, output)
+        local skill = output[#output] ---@type CodeCompanion.AgentSkills.Skill
         local for_user = string.format("Activated skill: %s", skill:name())
         tools.chat:add_tool_output(self, skill:read_content(), for_user)
+      end,
+      error = function(self, tools, cmd, output)
+        local error_msg = string.format(
+          "Failed to activate skill: %s. Error: %s",
+          self.args.skill_name,
+          output[#output]
+        )
+        tools.chat:add_tool_output(self, error_msg)
       end,
     },
   }
@@ -134,14 +142,23 @@ function Tools.load_skill_file()
       end,
     },
     output = {
-      success = function(self, tools, cmd, stdout)
-        local content = stdout[#stdout]
+      success = function(self, tools, cmd, output)
+        local content = output[#output]
         local for_user = string.format(
           "Loaded skill file successfully: %s/%s",
           self.args.skill_name,
           self.args.file_path
         )
         tools.chat:add_tool_output(self, content, for_user)
+      end,
+      error = function(self, tools, cmd, output)
+        local error_msg = string.format(
+          "Failed to load skill file: %s/%s. Error: %s",
+          self.args.skill_name,
+          self.args.file_path,
+          output[#output]
+        )
+        tools.chat:add_tool_output(self, error_msg)
       end,
     },
   }
@@ -175,7 +192,7 @@ function Tools.run_skill_script()
                 type = "string",
               },
               description = string.format(
-                [[Arguments to pass to the script. Placeholder '%s' will be replaced with the skill directory path. E.g: ["--template", "%s/assets/template.html"].]],
+                [[Argument array to pass to the script. Placeholder '%s' will be replaced with the skill directory path. E.g: ["--template", "%s/assets/template.html"].]],
                 Skill.SKILL_DIR_PLACEHOLDER,
                 Skill.SKILL_DIR_PLACEHOLDER
               ),
@@ -203,8 +220,8 @@ function Tools.run_skill_script()
       end,
     },
     output = {
-      success = function(self, tools, cmd, stdout)
-        local output = stdout[#stdout]
+      success = function(self, tools, cmd, output)
+        local output = output[#output]
         local for_user = string.format(
           "Run skill script successfully: %s %s",
           self.args.script_path,
@@ -212,8 +229,8 @@ function Tools.run_skill_script()
         )
         tools.chat:add_tool_output(self, output, for_user)
       end,
-      error = function(self, tools, cmd, stderr)
-        local error_msg = stderr[#stderr]
+      error = function(self, tools, cmd, output)
+        local error_msg = output[#output]
         local for_user = string.format(
           "Failed to run skill script: %s %s. Error: %s",
           self.args.script_path,
