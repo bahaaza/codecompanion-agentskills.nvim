@@ -7,45 +7,30 @@ local function make_system_prompt()
   local skill_list = vim
     .iter(AS.get_skills())
     :map(function(name, skill)
-      return string.format("* `%s`: %s", name, skill:description())
+      return string.format("- **%s**: %s", name, skill:description())
     end)
-    :join("\n\n")
+    :join("\n")
   return string.format(
-    [[## Agent Skills
-You can use **Agent Skills** to acquire domain knowledge and capabilities to accomplish specific user tasks.
+    [[# Agent Skills System
 
-A skill contains detailed instructions about how to perform a specific kind of tasks. It may also contains a set of reference documents that can be explicitly loaded on demand, and scripts and resource files that can help you accomplish the tasks.
+You are equipped with a **Progressive Disclosure Agent Skills System**. This allows you to dynamically load specialized domain knowledge and tools to solve complex user tasks.
 
-### When to use skills?
-* The user explicitly requests to use a skill.
-* The user task requires specific domain knowledge or capabilities that can be better handled by a skill.
-* The execution of a skill's workflow delegates subtasks to another skill.
+## 🚀 Workflow
+1. **Identify**: Review the "Available Skills" list below. If a skill matches the user's intent, choose it.
+2. **Activate**: Call `activate_skill` with the skill name. This injects the skill's specific instructions (SOPs) into your context.
+3. **Execute**: Strictly follow the new instructions provided by the skill.
+4. **Resource Access**: If the skill instructions reference files (docs, templates) or scripts:
+   - Use `load_skill_file` to read text content.
+   - Use `run_skill_script` to execute executable scripts.
 
-### How to use skills?
-Agent Skills follow a **Progressive Disclosure** pattern: you are given names and descriptions of all available skills, and you can **activate** a skill to load its instructions, then optionally load its reference documents and resources as needed.
+## ⚠️ CRITICAL RULES
+1. **VIRTUAL FILESYSTEM**: Files mentioned within a skill (e.g., `assets/template.md`, `scripts/build.sh`) exist in a **virtual skill directory**, NOT the user's physical workspace.
+   - ❌ **NEVER** use standard file tools (`read_file`, `grep`, etc.) to access skill resources.
+   - ✅ **ONLY** use `load_skill_file` and `run_skill_script`.
+2. **CONTEXT SWITCHING**: When a skill is activated, its instructions take precedence for that specific sub-task.
+3. **TRANSPARENCY**: Inform the user when you are activating a skill (e.g., "I will use the `git-expert` skill to handle this...").
 
-You must follow the steps below when you need to use a skill:
-1. Determine which skill is most appropriate for the user task based on the skill descriptions.
-2. Use `activate_skill` tool to activate the chosen skill, and you will be presented with the skill instructions.
-3. Strictly follow the skill instructions to accomplish the user task.
-4. *Only if needed*, use `load_skill_file` tool to load reference documents or resource files, use `run_skill_script` tool to execute scripts provided by the skill.
-
-### Key points
-* You must strictly follow the instructions provided by the activated skill.
-* All files mentioned in the skill instructions DO NOT EXIST in your current working directory, so you MUST NOT access them using generic file access tools, no matter what the instructions say.
-* You can only access skill files via `load_skill_file` tools.
-* You can only run skill scripts via `run_skill_script` tools.
-* You should give concise and clear process updates to the user on each step of the skill instructions.
-
-### Example
-1. User requests to generate a analytical report, and a skill named `report-generator` contains instructions on how to generate the report according to its description.
-2. You use `activate_skill` tool to activate `report-generator` skill, and read its instructions.
-3. You follow the instructions to gather and analyze data.
-4. The instructions suggest reading `references/usage.md` for more details, so you use `load_skill_file` tool to load that file.
-5. The instructions require running a script `scripts/generate_report.sh` with a specific template, so you use `run_skill_script` tool to execute that script with the required arguments.
-6. You revisit the skill instructions to ensure all steps are followed, and present the final result to the user.
-
-### What skills are available?
+## 📦 Available Skills
 %s]],
     skill_list
   )
