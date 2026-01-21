@@ -25,9 +25,10 @@ local function discover_skills()
       path = path_spec
       recursive = false
     else
-      path = path_spec[1]
+      path = path_spec[1] or path_spec.path
       recursive = path_spec.recursive or false
     end
+    path = vim.fs.normalize(path)
 
     log:info("Scanning skills in %s", path_spec)
     local skill_files = scandir.scan_dir(path, {
