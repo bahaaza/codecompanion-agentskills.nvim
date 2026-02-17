@@ -77,11 +77,13 @@ Any additional paths specified in `opts.paths` are scanned on top of these defau
 |--------|------|---------|-------------|
 | `paths` | `table` | `{}` | Additional paths to search for skills. Each entry can be a string (non-recursive) or a table `{ path, recursive = true }`. |
 | `notify_on_discovery` | `boolean` | `false` | When `true`, displays a `vim.notify` message listing all discovered skills on startup. |
+| `make_slash_commands` | `boolean` | `true` | When `true`, registers discovered skills as `/` slash commands in CodeCompanion chat. |
 
 ## Usage
 
 * Put skill directories in one of the [default paths](#default-skill-paths) or any path configured in `opts.paths`. Each skill directory must contain a `SKILL.md` file with YAML frontmatter.
 * Use `@{agent_skills}` tool group in your Chat. The LLM should activate skills when your task matches the skill's description. You can also explicitly ask the LLM to use a specific skill by name.
+* Type `/` in the chat buffer to invoke a skill as a slash command (e.g., `/my-skill`). Skills are automatically registered as slash commands unless `make_slash_commands` is set to `false`.
 
 ## SKILL.md Format
 
@@ -93,6 +95,8 @@ name: my-skill
 description: Short description of what this skill does and when to use it.
 license: MIT
 disable-model-invocation: false
+user-invokable: true
+argument-hint: "[options]"
 compatibility:
   requires:
     - python3
@@ -115,3 +119,16 @@ Detailed instructions for the agent.
 | `compatibility` | No | Environment requirements (system packages, network access, etc.). |
 | `metadata` | No | Arbitrary key-value mapping for additional metadata. |
 | `disable-model-invocation` | No | When `true`, the skill is only included when explicitly requested by name. The agent will not automatically apply it based on context. Default: `false`. |
+| `user-invokable` | No | Controls whether the skill appears as a `/` slash command in the chat buffer. Default: `true`. |
+| `argument-hint` | No | Hint text shown as the slash command description when invoked via `/`. Falls back to `description` if not set. |
+
+### Skill Invocation Behavior
+
+The `user-invokable` and `disable-model-invocation` fields control how a skill can be accessed:
+
+| Configuration | `/` Slash Command | Auto-loaded by Agent | Use Case |
+|---|---|---|---|
+| Default (both omitted) | ✅ | ✅ | General-purpose skills |
+| `user-invokable: false` | ❌ | ✅ | Background knowledge the agent loads when relevant |
+| `disable-model-invocation: true` | ✅ | ❌ | On-demand skills invoked manually |
+| Both set | ❌ | ❌ | Effectively disabled |
