@@ -5,20 +5,59 @@ local tools = require("codecompanion._extensions.agentskills.tools")
 
 local Extension = {}
 
+--- Project-level skill paths (relative to cwd)
+local DEFAULT_PROJECT_SKILL_PATHS = {
+  ".github/skills",
+  ".claude/skills",
+  ".agents/skills",
+}
+
+--- Personal skill paths (relative to home directory)
+local DEFAULT_PERSONAL_SKILL_PATHS = {
+  "~/.copilot/skills",
+  "~/.claude/skills",
+  "~/.agents/skills",
+}
+
 ---@class CodeCompanion.AgentSkills.Opts
----@field paths (string | { [1]: string, recursive: boolean })[] List of paths to search for skills
+---@field paths (string | { [1]: string, recursive: boolean })[] Additional paths to search for skills
+---@field notify_on_discovery boolean Whether to notify about discovered skills (default: false)
 
 ---@type CodeCompanion.AgentSkills.Opts
 local current_opts = {
   paths = {},
+  notify_on_discovery = false,
 }
 
 ---@type table<string, CodeCompanion.AgentSkills.Skill>?
 local skills
 
+---@return (string | { [1]: string, recursive: boolean })[]
+local function get_all_paths()
+  local paths = {}
+
+  -- Add project-level default paths (relative to cwd)
+  local cwd = vim.fn.getcwd()
+  for _, rel_path in ipairs(DEFAULT_PROJECT_SKILL_PATHS) do
+    table.insert(paths, vim.fs.joinpath(cwd, rel_path))
+  end
+
+  -- Add personal default paths
+  for _, path in ipairs(DEFAULT_PERSONAL_SKILL_PATHS) do
+    table.insert(paths, path)
+  end
+
+  -- Add user-configured paths
+  for _, path_spec in ipairs(current_opts.paths) do
+    table.insert(paths, path_spec)
+  end
+
+  return paths
+end
+
 local function discover_skills()
   skills = {}
-  for _, path_spec in ipairs(current_opts.paths) do
+  for _, path_spec in ipairs(get_all_paths()) do
     -- Normalize path specification
     local path, recursive
     if type(path_spec) == "string" then
@@ -29,6 +68,12 @@ local function discover_skills()
       recursive = path_spec.recursive or false
     end
     path = vim.fs.normalize(path)
+
+    -- Skip non-existent directories
+    if not vim.uv.fs_stat(path) then
+      log:debug("Skipping non-existent skill path: %s", path)
+      goto continue
+    end
 
     log:info("Scanning skills in %s", path_spec)
     local skill_files = scandir.scan_dir(path, {
@@ -50,6 +95,25 @@ local function discover_skills()
       else
         log:warn("Failed to load skill %s: %s", skill_dir, skill)
       end
+    end
+
+    ::continue::
+  end
+
+  if current_opts.notify_on_discovery then
+    local skill_names = vim.tbl_keys(skills)
+    if #skill_names > 0 then
+      table.sort(skill_names)
+      vim.notify(
+        string.format(
+          "[AgentSkills] Discovered %d skill(s): %s",
+          #skill_names,
+          table.concat(skill_names, ", ")
+        ),
+        vim.log.levels.INFO
+      )
+    else
+      vim.notify("[AgentSkills] No skills discovered", vim.log.levels.WARN)
     end
   end
 end
