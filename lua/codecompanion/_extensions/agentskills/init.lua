@@ -124,6 +124,29 @@ local function discover_skills()
   end
 end
 
+--- Inject tools declared by a skill into an active chat
+---@param chat CodeCompanion.Chat
+---@param skill CodeCompanion.AgentSkills.Skill
+function Extension.inject_skill_tools(chat, skill)
+  local skill_tools = skill:tools()
+  if #skill_tools == 0 then
+    return
+  end
+
+  local cc_config = require("codecompanion.config")
+  local tools_config = cc_config.interactions.chat.tools
+
+  for _, tool_name in ipairs(skill_tools) do
+    if tools_config.groups[tool_name] then
+      chat.tool_registry:add_group(tool_name, tools_config)
+    elseif tools_config[tool_name] then
+      chat.tool_registry:add(tool_name, tools_config[tool_name])
+    else
+      log:warn("Skill '%s' references unknown tool: %s", skill:name(), tool_name)
+    end
+  end
+end
+
 ---@param opts CodeCompanion.AgentSkills.Opts
 function Extension.setup(opts)
   current_opts = vim.tbl_deep_extend("force", current_opts, opts or {})
@@ -166,6 +189,7 @@ function Extension.setup(opts)
               { role = cc_config.constants.USER_ROLE, content = skill:read_content() },
               { visible = false }
             )
+            Extension.inject_skill_tools(chat, skill)
             vim.notify(string.format("[AgentSkills] Loaded skill: %s", name), vim.log.levels.INFO)
           end,
           opts = {
@@ -192,6 +216,7 @@ Extension.exports = {
   Skill = Skill,
   discover = discover_skills,
   get_skills = Extension.get_skills,
+  inject_skill_tools = Extension.inject_skill_tools,
 }
 
 return Extension

@@ -89,9 +89,11 @@ function Tools.activate_skill()
     },
     output = {
       success = function(self, tools, cmd, output)
+        local AS = require("codecompanion._extensions.agentskills")
         local skill = output[#output] ---@type CodeCompanion.AgentSkills.Skill
         local for_user = string.format("Activated skill: %s", skill:name())
         tools.chat:add_tool_output(self, skill:read_content(), for_user)
+        AS.inject_skill_tools(tools.chat, skill)
       end,
       error = function(self, tools, cmd, output)
         local error_msg = string.format(

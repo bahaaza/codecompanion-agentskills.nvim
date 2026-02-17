@@ -39,6 +39,7 @@ end
 ---@field ["disable-model-invocation"]? boolean When true, skill is only included when explicitly invoked
 ---@field ["user-invokable"]? boolean Controls whether the skill appears as a slash command (default: true)
 ---@field ["argument-hint"]? string Hint text shown when the skill is invoked as a slash command
+---@field tools? string[] List of tool/tool group names to inject when the skill is activated
 local Skill = {
   SKILL_DIR_PLACEHOLDER = "${SKILL_DIR}",
 }
@@ -95,6 +96,11 @@ end
 ---@return string?
 function Skill:argument_hint()
   return self.meta["argument-hint"]
+end
+
+---@return string[]
+function Skill:tools()
+  return self.meta.tools or {}
 end
 
 function Skill:_normalize_path_in_skill(path_in_skill)
