@@ -135,11 +135,24 @@ function Extension.inject_skill_tools(chat, skill)
 
   local cc_config = require("codecompanion.config")
   local tools_config = cc_config.interactions.chat.tools
+  local in_use = chat.tool_registry.in_use
 
   for _, tool_name in ipairs(skill_tools) do
     if tools_config.groups[tool_name] then
-      chat.tool_registry:add_group(tool_name, tools_config)
+      -- Guard against duplicate group injection (upstream add_group lacks dedup)
+      local group_tools = tools_config.groups[tool_name].tools or {}
+      local all_loaded = #group_tools > 0
+      for _, t in ipairs(group_tools) do
+        if not in_use[t] then
+          all_loaded = false
+          break
+        end
+      end
+      if not all_loaded then
+        chat.tool_registry:add_group(tool_name, tools_config)
+      end
     elseif tools_config[tool_name] then
+      -- Individual tools are already guarded by in_use in add()
       chat.tool_registry:add(tool_name, tools_config[tool_name])
     else
       log:warn("Skill '%s' references unknown tool: %s", skill:name(), tool_name)
