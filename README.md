@@ -20,6 +20,7 @@ For more information about Agent Skills, visit the [official website](https://ag
   - `run_skill_script`: Execute scripts provided by a skill
   - **The above tools are invisible to users and you should use the `@{agent_skills}` tool group in your Chat**
 - **Flexible Discovery**: Scan single directories or recursively search for skills
+- **Default Skill Paths**: Automatically discovers skills from well-known project and personal directories
 
 ## Requirements
 
@@ -49,7 +50,8 @@ Using [lazy.nvim](https://github.com/folke/lazy.nvim):
             paths = {
               "~/my-agent-skills",  -- Single directory (non-recursive)
               { "~/.config/nvim/skills", recursive = true },  -- Recursive search
-            }
+            },
+            notify_on_discovery = true,  -- Show a notification when skills are discovered
           }
         }
       }
@@ -58,7 +60,25 @@ Using [lazy.nvim](https://github.com/folke/lazy.nvim):
 }
 ```
 
+## Default Skill Paths
+
+Skills are automatically discovered from the following well-known directories (no configuration needed):
+
+| Type | Paths |
+|------|-------|
+| **Project** (relative to cwd) | `.github/skills/`, `.claude/skills/`, `.agents/skills/` |
+| **Personal** (home directory) | `~/.copilot/skills/`, `~/.claude/skills/`, `~/.agents/skills/` |
+
+Any additional paths specified in `opts.paths` are scanned on top of these defaults. Non-existent directories are silently skipped.
+
+## Configuration
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `paths` | `table` | `{}` | Additional paths to search for skills. Each entry can be a string (non-recursive) or a table `{ path, recursive = true }`. |
+| `notify_on_discovery` | `boolean` | `false` | When `true`, displays a `vim.notify` message listing all discovered skills on startup. |
+
 ## Usage
 
-* Put skills directories in one of the configured paths.
+* Put skill directories in one of the [default paths](#default-skill-paths) or any path configured in `opts.paths`. Each skill directory must contain a `SKILL.md` file with YAML frontmatter (`name` and `description` fields).
 * Use `@{agent_skills}` tool group in your Chat. The LLM should activate skills when your task matches the skill's description. You can also explicitly ask the LLM to use a specific skill by name.
