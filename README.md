@@ -97,6 +97,9 @@ license: MIT
 disable-model-invocation: false
 user-invokable: true
 argument-hint: "[options]"
+tools:
+  - cmd_runner
+  - agent_skills
 compatibility:
   requires:
     - python3
@@ -121,6 +124,7 @@ Detailed instructions for the agent.
 | `disable-model-invocation` | No | When `true`, the skill is only included when explicitly requested by name. The agent will not automatically apply it based on context. Default: `false`. |
 | `user-invokable` | No | Controls whether the skill appears as a `/` slash command in the chat buffer. Default: `true`. |
 | `argument-hint` | No | Hint text shown as the slash command description when invoked via `/`. Falls back to `description` if not set. |
+| `tools` | No | List of tool or tool group names to inject into the chat when the skill is activated. |
 
 ### Skill Invocation Behavior
 
