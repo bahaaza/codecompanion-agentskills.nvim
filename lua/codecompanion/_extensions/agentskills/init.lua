@@ -26,11 +26,13 @@ local DEFAULT_PERSONAL_SKILL_PATHS = {
 ---@class CodeCompanion.AgentSkills.Opts
 ---@field paths (string | { [1]: string, recursive: boolean })[] Additional paths to search for skills
 ---@field notify_on_discovery boolean Whether to notify about discovered skills (default: false)
+---@field make_slash_commands boolean Whether to register skills as slash commands (default: true)
 
 ---@type CodeCompanion.AgentSkills.Opts
 local current_opts = {
   paths = {},
   notify_on_discovery = false,
+  make_slash_commands = true,
 }
 
 ---@type table<string, CodeCompanion.AgentSkills.Skill>?
@@ -151,6 +153,28 @@ function Extension.setup(opts)
     tools = { "activate_skill", "load_skill_file", "run_skill_script" },
     opts = { collapse_tools = true },
   }
+
+  -- Register skills as slash commands
+  if current_opts.make_slash_commands and skills then
+    local slash_commands_config = cc_config.interactions.chat.slash_commands
+    for name, skill in pairs(skills) do
+      if skill:is_user_invokable() then
+        slash_commands_config[name] = {
+          description = skill:argument_hint() or skill:description(),
+          callback = function(chat)
+            chat:add_message(
+              { role = cc_config.constants.USER_ROLE, content = skill:read_content() },
+              { visible = false }
+            )
+            vim.notify(string.format("[AgentSkills] Loaded skill: %s", name), vim.log.levels.INFO)
+          end,
+          opts = {
+            contains_code = false,
+          },
+        }
+      end
+    end
+  end
 end
 
 ---@return table<string, CodeCompanion.AgentSkills.Skill>?

@@ -37,6 +37,8 @@ end
 ---@field compatibility? table Environment requirements (system packages, network access, etc.)
 ---@field metadata? table<string, any> Arbitrary key-value mapping for additional metadata
 ---@field ["disable-model-invocation"]? boolean When true, skill is only included when explicitly invoked
+---@field ["user-invokable"]? boolean Controls whether the skill appears as a slash command (default: true)
+---@field ["argument-hint"]? string Hint text shown when the skill is invoked as a slash command
 local Skill = {
   SKILL_DIR_PLACEHOLDER = "${SKILL_DIR}",
 }
@@ -83,6 +85,16 @@ end
 ---@return boolean
 function Skill:is_auto_invocation_disabled()
   return self.meta["disable-model-invocation"] == true
+end
+
+---@return boolean
+function Skill:is_user_invokable()
+  return self.meta["user-invokable"] ~= false
+end
+
+---@return string?
+function Skill:argument_hint()
+  return self.meta["argument-hint"]
 end
 
 function Skill:_normalize_path_in_skill(path_in_skill)
