@@ -66,8 +66,8 @@ Skills are automatically discovered from the following well-known directories (n
 
 | Type | Paths |
 |------|-------|
-| **Project** (relative to cwd) | `.github/skills/`, `.claude/skills/`, `.agents/skills/` |
-| **Personal** (home directory) | `~/.copilot/skills/`, `~/.claude/skills/`, `~/.agents/skills/` |
+| **Project** (relative to cwd) | `.github/skills/`, `.cursor/skills/`, `.claude/skills/`, `.codex/skills/`, `.agents/skills/` |
+| **Personal** (home directory) | `~/.copilot/skills/`, `~/.cursor/skills/`, `~/.claude/skills/`, `~/.codex/skills/`, `~/.agents/skills/` |
 
 Any additional paths specified in `opts.paths` are scanned on top of these defaults. Non-existent directories are silently skipped.
 
@@ -80,5 +80,38 @@ Any additional paths specified in `opts.paths` are scanned on top of these defau
 
 ## Usage
 
-* Put skill directories in one of the [default paths](#default-skill-paths) or any path configured in `opts.paths`. Each skill directory must contain a `SKILL.md` file with YAML frontmatter (`name` and `description` fields).
+* Put skill directories in one of the [default paths](#default-skill-paths) or any path configured in `opts.paths`. Each skill directory must contain a `SKILL.md` file with YAML frontmatter.
 * Use `@{agent_skills}` tool group in your Chat. The LLM should activate skills when your task matches the skill's description. You can also explicitly ask the LLM to use a specific skill by name.
+
+## SKILL.md Format
+
+Each skill is defined in a `SKILL.md` file with YAML frontmatter:
+
+```markdown
+---
+name: my-skill
+description: Short description of what this skill does and when to use it.
+license: MIT
+disable-model-invocation: false
+compatibility:
+  requires:
+    - python3
+metadata:
+  author: your-name
+---
+
+# My Skill
+
+Detailed instructions for the agent.
+```
+
+### Frontmatter Fields
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `name` | Yes | Skill identifier. |
+| `description` | Yes | Describes what the skill does and when to use it. Used by the agent to determine relevance. |
+| `license` | No | License name or reference to a bundled license file. |
+| `compatibility` | No | Environment requirements (system packages, network access, etc.). |
+| `metadata` | No | Arbitrary key-value mapping for additional metadata. |
+| `disable-model-invocation` | No | When `true`, the skill is only included when explicitly requested by name. The agent will not automatically apply it based on context. Default: `false`. |

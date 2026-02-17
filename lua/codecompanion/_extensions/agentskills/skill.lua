@@ -28,7 +28,15 @@ end
 
 ---@class CodeCompanion.AgentSkills.Skill
 ---@field path string
----@field meta table<string, any>
+---@field meta CodeCompanion.AgentSkills.SkillMeta
+
+---@class CodeCompanion.AgentSkills.SkillMeta
+---@field name string Skill identifier
+---@field description string Describes what the skill does and when to use it
+---@field license? string License name or reference to a bundled license file
+---@field compatibility? table Environment requirements (system packages, network access, etc.)
+---@field metadata? table<string, any> Arbitrary key-value mapping for additional metadata
+---@field ["disable-model-invocation"]? boolean When true, skill is only included when explicitly invoked
 local Skill = {
   SKILL_DIR_PLACEHOLDER = "${SKILL_DIR}",
 }
@@ -55,6 +63,26 @@ end
 ---@return string
 function Skill:description()
   return vim.trim(self.meta.description)
+end
+
+---@return string?
+function Skill:license()
+  return self.meta.license
+end
+
+---@return table?
+function Skill:compatibility()
+  return self.meta.compatibility
+end
+
+---@return table<string, any>?
+function Skill:metadata()
+  return self.meta.metadata
+end
+
+---@return boolean
+function Skill:is_auto_invocation_disabled()
+  return self.meta["disable-model-invocation"] == true
 end
 
 function Skill:_normalize_path_in_skill(path_in_skill)

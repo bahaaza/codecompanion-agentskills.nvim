@@ -4,12 +4,29 @@ local Skill = require("codecompanion._extensions.agentskills.skill")
 
 local function make_system_prompt()
   local AS = require("codecompanion._extensions.agentskills")
-  local skill_list = vim
-    .iter(AS.get_skills())
-    :map(function(name, skill)
-      return string.format("- **%s**: %s", name, skill:description())
-    end)
-    :join("\n")
+  local auto_skills = {}
+  local manual_skills = {}
+
+  for name, skill in pairs(AS.get_skills()) do
+    if skill:is_auto_invocation_disabled() then
+      table.insert(manual_skills, string.format("- **%s**: %s", name, skill:description()))
+    else
+      table.insert(auto_skills, string.format("- **%s**: %s", name, skill:description()))
+    end
+  end
+
+  table.sort(auto_skills)
+  table.sort(manual_skills)
+
+  local skill_list = table.concat(auto_skills, "\n")
+  local manual_section = ""
+  if #manual_skills > 0 then
+    manual_section = string.format(
+      "\n\n## 🔧 Manual-Only Skills\nThe following skills are only activated when explicitly requested by name:\n%s",
+      table.concat(manual_skills, "\n")
+    )
+  end
+
   return string.format(
     [[# Agent Skills System
 
@@ -31,8 +48,9 @@ You are equipped with a **Progressive Disclosure Agent Skills System**. This all
 3. **TRANSPARENCY**: Inform the user when you are activating a skill (e.g., "I will use the `git-expert` skill to handle this...").
 
 ## 📦 Available Skills
-%s]],
-    skill_list
+%s%s]],
+    skill_list,
+    manual_section
   )
 end
 
@@ -206,7 +224,8 @@ function Tools.run_skill_script()
     },
     output = {
       prompt = function(self, tools)
-        return string.format("Confirm to run script from skill '%s' ?\n%s %s",
+        return string.format(
+          "Confirm to run script from skill '%s' ?\n%s %s",
           self.args.skill_name,
           self.args.script_path,
           table.concat(self.args.args or {}, " ")

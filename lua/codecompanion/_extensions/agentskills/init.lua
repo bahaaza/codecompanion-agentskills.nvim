@@ -8,14 +8,18 @@ local Extension = {}
 --- Project-level skill paths (relative to cwd)
 local DEFAULT_PROJECT_SKILL_PATHS = {
   ".github/skills",
+  ".cursor/skills",
   ".claude/skills",
+  ".codex/skills",
   ".agents/skills",
 }
 
 --- Personal skill paths (relative to home directory)
 local DEFAULT_PERSONAL_SKILL_PATHS = {
   "~/.copilot/skills",
+  "~/.cursor/skills",
   "~/.claude/skills",
+  "~/.codex/skills",
   "~/.agents/skills",
 }
 
