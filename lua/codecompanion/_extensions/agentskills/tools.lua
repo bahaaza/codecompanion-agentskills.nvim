@@ -70,18 +70,18 @@ function Tools.activate_skill()
       end,
     },
     output = {
-      success = function(self, tools, cmd, output)
+      success = function(self, output, meta)
         local skill = output[#output] ---@type CodeCompanion.AgentSkills.Skill
         local for_user = string.format("Activated skill: %s", skill:name())
-        tools.chat:add_tool_output(self, skill:read_content(), for_user)
+        meta.tools.chat:add_tool_output(self, skill:read_content(), for_user)
       end,
-      error = function(self, tools, cmd, output)
+      error = function(self, output, meta)
         local error_msg = string.format(
           "Failed to activate skill: %s. Error: %s",
           self.args.skill_name,
           output[#output]
         )
-        tools.chat:add_tool_output(self, error_msg)
+        meta.tools.chat:add_tool_output(self, error_msg)
       end,
     },
   }
@@ -127,23 +127,23 @@ function Tools.load_skill_file()
       end,
     },
     output = {
-      success = function(self, tools, cmd, output)
+      success = function(self, output, meta)
         local content = output[#output]
         local for_user = string.format(
           "Loaded skill file successfully: %s/%s",
           self.args.skill_name,
           self.args.file_path
         )
-        tools.chat:add_tool_output(self, content, for_user)
+        meta.tools.chat:add_tool_output(self, content, for_user)
       end,
-      error = function(self, tools, cmd, output)
+      error = function(self, output, meta)
         local error_msg = string.format(
           "Failed to load skill file: %s/%s. Error: %s",
           self.args.skill_name,
           self.args.file_path,
           output[#output]
         )
-        tools.chat:add_tool_output(self, error_msg)
+        meta.tools.chat:add_tool_output(self, error_msg)
       end,
     },
   }
@@ -189,7 +189,7 @@ function Tools.run_skill_script()
       },
     },
     cmds = {
-      function(self, args, input, output_handler)
+      function(self, args, opts)
         local AS = require("codecompanion._extensions.agentskills")
         local skill = AS.get_skill(args.skill_name)
         if not skill then
@@ -197,31 +197,32 @@ function Tools.run_skill_script()
         end
         skill:run_script(args.script_path, args.args or {}, function(ok, output)
           if ok then
-            output_handler({ status = "success", data = output })
+            opts.output_cb({ status = "success", data = output })
           else
-            output_handler({ status = "error", data = output })
+            opts.output_cb({ status = "error", data = output })
           end
         end)
       end,
     },
     output = {
-      prompt = function(self, tools)
-        return string.format("Confirm to run script from skill '%s' ?\n%s %s",
+      prompt = function(self)
+        return string.format(
+          "Confirm to run script from skill '%s' ?\n%s %s",
           self.args.skill_name,
           self.args.script_path,
           table.concat(self.args.args or {}, " ")
         )
       end,
-      success = function(self, tools, cmd, output)
+      success = function(self, output, meta)
         local output = output[#output]
         local for_user = string.format(
           "Run skill script successfully: %s %s",
           self.args.script_path,
           table.concat(self.args.args or {}, " ")
         )
-        tools.chat:add_tool_output(self, output, for_user)
+        meta.tools.chat:add_tool_output(self, output, for_user)
       end,
-      error = function(self, tools, cmd, output)
+      error = function(self, output, meta)
         local error_msg = output[#output]
         local for_user = string.format(
           "Failed to run skill script: %s %s. Error: %s",
@@ -229,7 +230,7 @@ function Tools.run_skill_script()
           table.concat(self.args.args or {}, " "),
           error_msg
         )
-        tools.chat:add_tool_output(self, error_msg, for_user)
+        meta.tools.chat:add_tool_output(self, error_msg, for_user)
       end,
     },
   }
