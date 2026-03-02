@@ -176,7 +176,8 @@ function Extension.setup(opts)
   local cc_compat = require("codecompanion._extensions.agentskills.cc_compat")
   local tools_module = require("codecompanion._extensions.agentskills.tools")
 
-  local tools_config = require("codecompanion.config").interactions.chat.tools
+  local cc_config = require("codecompanion.config")
+  local tools_config = cc_config.interactions.chat.tools
   tools_config.activate_skill = {
     callback = cc_compat.decorate_tool(tools_module.activate_skill, version),
     visible = false,
