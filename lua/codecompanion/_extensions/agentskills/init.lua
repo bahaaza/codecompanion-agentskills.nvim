@@ -1,7 +1,6 @@
 local Skill = require("codecompanion._extensions.agentskills.skill")
 local log = require("codecompanion.utils.log")
 local scandir = require("plenary.scandir")
-local tools = require("codecompanion._extensions.agentskills.tools")
 
 local Extension = {}
 
@@ -163,20 +162,31 @@ end
 ---@param opts CodeCompanion.AgentSkills.Opts
 function Extension.setup(opts)
   current_opts = vim.tbl_deep_extend("force", current_opts, opts or {})
+
+  -- Detect CodeCompanion version
+  local ok, cc = pcall(require, "codecompanion")
+  local version = 18
+  if ok and cc and cc.version then
+    version = tonumber(cc.version():match("^(%d+)")) or 18
+  end
+
   discover_skills()
 
-  local cc_config = require("codecompanion.config")
-  local tools_config = cc_config.interactions.chat.tools
+  -- Apply version compatibility decorator
+  local cc_compat = require("codecompanion._extensions.agentskills.cc_compat")
+  local tools_module = require("codecompanion._extensions.agentskills.tools")
+
+  local tools_config = require("codecompanion.config").interactions.chat.tools
   tools_config.activate_skill = {
-    callback = tools.activate_skill,
+    callback = cc_compat.decorate_tool(tools_module.activate_skill, version),
     visible = false,
   }
   tools_config.load_skill_file = {
-    callback = tools.load_skill_file,
+    callback = cc_compat.decorate_tool(tools_module.load_skill_file, version),
     visible = false,
   }
   tools_config.run_skill_script = {
-    callback = tools.run_skill_script,
+    callback = cc_compat.decorate_tool(tools_module.run_skill_script, version),
     opts = {
       allowed_in_yolo_mode = false,
       require_approval_before = true,
