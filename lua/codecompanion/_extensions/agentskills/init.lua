@@ -5,6 +5,8 @@ local Extension = {}
 
 ---@class CodeCompanion.AgentSkills.Opts
 ---@field paths (string | { [1]: string, recursive: boolean })[] List of paths to search for skills
+---@field script_interpreters? table<string, table> Interpreter-specific configurations
+---@field disable_demo_skill? boolean Disable the built-in demo-skill (default: false)
 
 ---@type CodeCompanion.AgentSkills.Opts
 local current_opts = {
@@ -86,7 +88,6 @@ local function discover_skills()
     scan_skills(path, 0, recursive and 99 or 1, skill_files, {})
     log:info("Found skill files: %s", skill_files)
 
-
     for _, skill_dir in ipairs(skill_files) do
       local ok, skill = pcall(Skill.load, skill_dir)
       if ok and skill and skill.name then
@@ -96,11 +97,29 @@ local function discover_skills()
       end
     end
   end
+
+  if not current_opts.disable_demo_skill then
+    local demo_skill_path = vim.fs.joinpath(
+      vim.fn.fnamemodify(debug.getinfo(1, "S").source:sub(2), ":p:h:h:h:h:h"),
+      "demo-skill"
+    )
+    local ok, demo_skill = pcall(Skill.load, demo_skill_path)
+    if ok and demo_skill then
+      skills[demo_skill:name()] = demo_skill
+      log:info("Loaded built-in demo-skill from %s", demo_skill_path)
+    else
+      log:warn("Failed to load built-in demo-skill from %s: %s", demo_skill_path, demo_skill)
+    end
+  end
 end
 
 ---@param opts CodeCompanion.AgentSkills.Opts
 function Extension.setup(opts)
   current_opts = vim.tbl_deep_extend("force", current_opts, opts or {})
+
+  require("codecompanion._extensions.agentskills.interpreter").setup(
+    current_opts.script_interpreters or {}
+  )
 
   -- Detect CodeCompanion version
   local ok, cc = pcall(require, "codecompanion")
@@ -149,6 +168,11 @@ end
 ---@return CodeCompanion.AgentSkills.Skill?
 function Extension.get_skill(name)
   return skills and skills[name]
+end
+
+---@return CodeCompanion.AgentSkills.Opts
+function Extension.get_opts()
+  return current_opts
 end
 
 Extension.exports = {

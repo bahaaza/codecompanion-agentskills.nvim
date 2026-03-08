@@ -150,6 +150,20 @@ function Tools.load_skill_file()
 end
 
 function Tools.run_skill_script()
+  local interpreters =
+    require("codecompanion._extensions.agentskills.interpreter").get_enabled_interpreters()
+  local interpreter_lines = {}
+  local available_names = {}
+  for name, handler in pairs(interpreters) do
+    table.insert(available_names, name)
+    local deps_note = handler.support_dependencies and " (supports dependencies)" or ""
+    table.insert(interpreter_lines, string.format("- %s%s", name, deps_note))
+  end
+  table.sort(available_names)
+  table.sort(interpreter_lines)
+
+  local interpreter_desc = table.concat(interpreter_lines, "\n")
+
   return {
     name = "run_skill_script",
     schema = {
@@ -157,8 +171,14 @@ function Tools.run_skill_script()
       ["function"] = {
         name = "run_skill_script",
         description = string.format(
-          [[Run a script provided by a skill. The script will be executed in user's current working directory. Use placeholder '%s' in arguments to refer to the skill directory.]],
-          Skill.SKILL_DIR_PLACEHOLDER
+          [[Run a script provided by a skill. The script will be executed in user's current working directory. Use placeholder '%s' in arguments to refer to the skill directory.
+
+Supported interpreters:
+%s
+
+Note: Only interpreters that support dependencies can use the 'dependencies' parameter.]],
+          Skill.SKILL_DIR_PLACEHOLDER,
+          interpreter_desc
         ),
         parameters = {
           type = "object",
@@ -173,17 +193,25 @@ function Tools.run_skill_script()
             },
             args = {
               type = "array",
-              items = {
-                type = "string",
-              },
+              items = { type = "string" },
               description = string.format(
                 [[Argument array to pass to the script. Placeholder '%s' will be replaced with the skill directory path. E.g: ["--template", "%s/assets/template.html"].]],
                 Skill.SKILL_DIR_PLACEHOLDER,
                 Skill.SKILL_DIR_PLACEHOLDER
               ),
             },
+            interpreter = {
+              type = "string",
+              enum = available_names,
+              description = "The interpreter to use for running the script.",
+            },
+            dependencies = {
+              type = "array",
+              items = { type = "string" },
+              description = [[List of runtime dependencies. Only supported by interpreters that support dependencies. E.g: ["requests", "numpy>=1.20"].]],
+            },
           },
-          required = { "skill_name", "script_path" },
+          required = { "skill_name", "script_path", "interpreter" },
         },
         strict = true,
       },
@@ -195,39 +223,64 @@ function Tools.run_skill_script()
         if not skill then
           return { status = "error", data = "Skill not found: " .. args.skill_name }
         end
-        skill:run_script(args.script_path, args.args or {}, function(ok, output)
-          if ok then
-            opts.output_cb({ status = "success", data = output })
-          else
-            opts.output_cb({ status = "error", data = output })
-          end
-        end)
+        skill:run_script(
+          args.script_path,
+          args.args or {},
+          args.interpreter,
+          args.dependencies ~= vim.NIL and args.dependencies or nil,
+          vim.schedule_wrap(function(ok, output)
+            if ok then
+              opts.output_cb({ status = "success", data = output })
+            else
+              opts.output_cb({ status = "error", data = output })
+            end
+          end)
+        )
       end,
     },
     output = {
       prompt = function(self)
-        return string.format(
-          "Confirm to run script from skill '%s' ?\n%s %s",
-          self.args.skill_name,
+        local argv = {
+          self.args.interpreter,
           self.args.script_path,
-          table.concat(self.args.args or {}, " ")
-        )
+        }
+        for _, arg in ipairs(self.args.args or {}) do
+          table.insert(argv, vim.fn.escape(arg, " "))
+        end
+
+        local msg = {
+          string.format("Confirm to run script from skill '%s'?", self.args.skill_name),
+          "Command:\n    " .. table.concat(argv, " "),
+        }
+
+        local deps = self.args.dependencies ~= vim.NIL and self.args.dependencies or nil
+        if deps and #deps > 0 then
+          table.insert(msg, "Dependencies:\n    " .. table.concat(deps, ", "))
+        end
+
+        return table.concat(msg, "\n")
       end,
+
       success = function(self, output, meta)
         local output = output[#output]
-        local for_user = string.format(
-          "Run skill script successfully: %s %s",
-          self.args.script_path,
-          table.concat(self.args.args or {}, " ")
-        )
+        local parts = { self.args.interpreter, self.args.script_path }
+        for _, arg in ipairs(self.args.args or {}) do
+          table.insert(parts, vim.fn.escape(arg, " "))
+        end
+        local for_user =
+          string.format("Run skill script successfully: %s", table.concat(parts, " "))
         meta.tools.chat:add_tool_output(self, output, for_user)
       end,
+
       error = function(self, output, meta)
         local error_msg = output[#output]
+        local parts = { self.args.interpreter, self.args.script_path }
+        for _, arg in ipairs(self.args.args or {}) do
+          table.insert(parts, vim.fn.escape(arg, " "))
+        end
         local for_user = string.format(
-          "Failed to run skill script: %s %s. Error: %s",
-          self.args.script_path,
-          table.concat(self.args.args or {}, " "),
+          "Failed to run skill script: %s. Error: %s",
+          table.concat(parts, " "),
           error_msg
         )
         meta.tools.chat:add_tool_output(self, error_msg, for_user)

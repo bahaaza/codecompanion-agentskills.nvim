@@ -78,42 +78,28 @@ end
 
 ---@param script string
 ---@param args string[]
+---@param interpreter string
+---@param dependencies? string[]
 ---@param callback fun(ok: boolean, output_or_error: string)
-function Skill:run_script(script, args, callback)
-  local cmd = { self:_normalize_path_in_skill(script) }
+function Skill:run_script(script, args, interpreter, dependencies, callback)
+  local script_path = self:_normalize_path_in_skill(script)
+
+  -- Replace SKILL_DIR placeholder in arguments
   local placeholder_pattern = vim.pesc(self.SKILL_DIR_PLACEHOLDER)
+  local processed_args = {}
   for _, arg in ipairs(args or {}) do
-    arg = string.gsub(arg, placeholder_pattern, self.path)
-    table.insert(cmd, arg)
+    local new_arg = string.gsub(arg, placeholder_pattern, self.path)
+    table.insert(processed_args, new_arg)
   end
-  log:info("Running skill script: %s", cmd)
-  vim.system(cmd, {
-    stdout = true,
-    stderr = true,
-  }, function(out)
-    log:info("Skill script exited with code %d: %s", out.code, cmd)
-    callback = vim.schedule_wrap(callback)
-    if out.code == 0 then
-      callback(true, out.stdout)
-    else
-      local msg
-      if out.signal and out.signal ~= 0 then
-        msg = string.format("Script terminated with signal %d", out.signal)
-      else
-        msg = string.format("Script exited with code %d", out.code)
-      end
-      local output = { msg }
-      if out.stdout and out.stdout ~= "" then
-        table.insert(output, "Standard Output:")
-        table.insert(output, out.stdout)
-      end
-      if out.stderr and out.stderr ~= "" then
-        table.insert(output, "Standard Error:")
-        table.insert(output, out.stderr)
-      end
-      callback(false, table.concat(output, "\n"))
-    end
-  end)
+
+  require("codecompanion._extensions.agentskills.interpreter").run(
+    interpreter,
+    self,
+    script_path,
+    processed_args,
+    dependencies,
+    callback
+  )
 end
 
 return Skill
