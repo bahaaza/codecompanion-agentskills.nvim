@@ -5,6 +5,7 @@ local Extension = {}
 
 ---@class CodeCompanion.AgentSkills.Opts
 ---@field paths (string | { [1]: string, recursive: boolean })[] List of paths to search for skills
+---@field ignore_dirs? string[] List of directory names to ignore during skill discovery
 ---@field script_interpreters? table<string, table> Interpreter-specific configurations
 ---@field disable_demo_skill? boolean Disable the built-in demo-skill (default: false)
 
@@ -75,7 +76,7 @@ local function discover_skills()
           break
         end
         -- Skip hidden directories and commonly ignored directories
-        if name:sub(1, 1) ~= "." and not current_opts.ignore_dirs[name] then
+        if name:sub(1, 1) ~= "." and not vim.list_contains(current_opts.ignore_dirs, name) then
           local child = vim.fs.joinpath(dir, name)
           if is_dir_or_symlink_dir(child) then
             scan_skills(child, depth + 1, max_depth, result, visited)

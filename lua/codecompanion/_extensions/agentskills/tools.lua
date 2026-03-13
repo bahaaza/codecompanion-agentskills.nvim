@@ -20,8 +20,8 @@ You are equipped with a **Progressive Disclosure Agent Skills System**. This all
 2. **Activate**: Call `activate_skill` with the skill name. This injects the skill's specific instructions (SOPs) into your context.
 3. **Execute**: Strictly follow the new instructions provided by the skill.
 4. **Resource Access**: If the skill instructions reference files (docs, templates) or scripts:
-   - Use `load_skill_file` to read text content.
-   - Use `run_skill_script` to execute executable scripts.
+   - Use `load_skill_file` to read files that are **explicitly referenced in the activated skill's documentation**. Never use it for files not mentioned in the skill.
+   - Use `run_skill_script` to execute scripts that are **explicitly listed in the activated skill's documentation**. Never use it for scripts not mentioned in the skill.
 
 ## ⚠️ CRITICAL RULES
 1. **VIRTUAL FILESYSTEM**: Files mentioned within a skill (e.g., `assets/template.md`, `scripts/build.sh`) exist in a **virtual skill directory**, NOT the user's physical workspace.
@@ -94,7 +94,7 @@ function Tools.load_skill_file()
       type = "function",
       ["function"] = {
         name = "load_skill_file",
-        description = "Load a file provided by a skill.",
+        description = "Load a file that is pre-packaged inside an activated skill's directory.\n\n**PREREQUISITE (must satisfy ALL before calling)**:\n1. You have already called `activate_skill` for the target skill.\n2. The skill's documentation **explicitly references** the file path you intend to load.\n3. The `file_path` is copied **verbatim** from the skill's documentation — do NOT construct or guess paths.\n\nIf no file is referenced in the skill documentation, do NOT call this tool. For files in the user's workspace, use standard file reading tools instead. To execute skill scripts, use `run_skill_script`.",
         parameters = {
           type = "object",
           properties = {
@@ -171,7 +171,17 @@ function Tools.run_skill_script()
       ["function"] = {
         name = "run_skill_script",
         description = string.format(
-          [[Run a script provided by a skill. The script will be executed in user's current working directory. Use placeholder '%s' in arguments to refer to the skill directory.
+          [[Run a script that is **pre-packaged inside an activated skill's directory**.
+
+**PREREQUISITE (must satisfy ALL before calling)**:
+1. You have already called `activate_skill` for the target skill.
+2. The skill's documentation **explicitly lists** the script path you intend to run.
+3. The `script_path` is copied **verbatim** from the skill's documentation — do NOT construct or guess paths.
+
+If no script is listed in the skill documentation, do NOT call this tool.
+If you need to run a general command unrelated to any skill, this tool CANNOT help — inform the user instead.
+
+The script runs in the user's current working directory. Use placeholder '%s' in arguments to refer to the skill directory.
 
 Supported interpreters:
 %s
@@ -218,6 +228,16 @@ Note: Only interpreters that support dependencies can use the 'dependencies' par
     },
     cmds = {
       function(self, args, opts)
+        if args.skill_name == nil then
+          return { status = "error", data = "Missing required parameter: skill_name" }
+        end
+        if args.script_path == nil then
+          return { status = "error", data = "Missing required parameter: script_path" }
+        end
+        if args.interpreter == nil then
+          return { status = "error", data = "Missing required parameter: interpreter" }
+        end
+
         local AS = require("codecompanion._extensions.agentskills")
         local skill = AS.get_skill(args.skill_name)
         if not skill then
@@ -244,7 +264,11 @@ Note: Only interpreters that support dependencies can use the 'dependencies' par
           self.args.interpreter,
           self.args.script_path,
         }
-        for _, arg in ipairs(self.args.args or {}) do
+        local args = self.args.args
+        if args == vim.NIL or args == nil then
+          args = {}
+        end
+        for _, arg in ipairs(args) do
           table.insert(argv, vim.fn.escape(arg, " "))
         end
 
