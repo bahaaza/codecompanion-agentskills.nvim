@@ -41,11 +41,20 @@ Load the skill file `references/welcome.md` and display its contents to the user
 
 ---
 
-### Step 4: Run Bash Version Check
+### Step 4: Run Bash Argument Demo
 
-**If `bash` is available**, run script `scripts/check_bash.sh` to check the installed Bash version.
+**If `bash` is available**, run script `scripts/check_bash.sh` with arguments.
 
-**If `bash` is NOT available**, note this and skip.
+Pass example arguments including:
+- a plain argument containing a whitespace like `first argument`
+- an argument containing `${SKILL_DIR}` such as `${SKILL_DIR}/references/welcome.md`
+
+Then verify that the script output contains:
+- the Bash version line
+- the first argument value
+- the resolved absolute path for the `${SKILL_DIR}`-based argument
+
+If the output does not match, report the mismatch in the final summary.
 
 ---
 
@@ -66,7 +75,7 @@ After completing all steps, output a summary table to the user:
 | 1 | Output execution plan | ✅ Done |
 | 2 | Load `references/welcome.md` | ✅ / ❌ |
 | 3 | Python demo (faker + relative imports) | ✅ / ❌ / ⏭️ Skipped |
-| 4 | Bash version check | ✅ / ❌ / ⏭️ Skipped |
+| 4 | Bash argument demo (args + `${SKILL_DIR}` placeholder validation) | ✅ / ❌ / ⏭️ Skipped |
 | 5 | Node.js version check | ✅ / ❌ / ⏭️ Skipped |
 
 Fill in the actual status for each step. Include any error messages for failed steps. End with a brief conclusion about whether the AgentSkills system is working correctly.

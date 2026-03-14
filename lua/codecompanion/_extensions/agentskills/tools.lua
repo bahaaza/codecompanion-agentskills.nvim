@@ -244,9 +244,9 @@ Note: Only interpreters that support dependencies can use the 'dependencies' par
           return { status = "error", data = "Skill not found: " .. args.skill_name }
         end
         skill:run_script(
-          args.script_path,
-          args.args or {},
           args.interpreter,
+          args.script_path,
+          args.args ~= vim.NIL and args.args or nil,
           args.dependencies ~= vim.NIL and args.dependencies or nil,
           vim.schedule_wrap(function(ok, output)
             if ok then
@@ -258,19 +258,35 @@ Note: Only interpreters that support dependencies can use the 'dependencies' par
         )
       end,
     },
+    handlers = {
+      setup = function(self, meta)
+        -- Smart argument escaping logic (for display only)
+        local args = self.args.args
+        if args == vim.NIL or args == nil then
+          self.escaped_args = {}
+          return
+        end
+
+        local escaped = {}
+        for _, arg in ipairs(args) do
+          if string.match(arg, "^[%w%.%-%_/:]+$") then
+            table.insert(escaped, arg)
+          else
+            table.insert(escaped, vim.fn.shellescape(arg))
+          end
+        end
+
+        self.escaped_args = escaped
+      end,
+    },
+
     output = {
       prompt = function(self)
         local argv = {
           self.args.interpreter,
           self.args.script_path,
+          unpack(self.escaped_args),
         }
-        local args = self.args.args
-        if args == vim.NIL or args == nil then
-          args = {}
-        end
-        for _, arg in ipairs(args) do
-          table.insert(argv, vim.fn.escape(arg, " "))
-        end
 
         local msg = {
           string.format("Confirm to run script from skill '%s'?", self.args.skill_name),
@@ -287,21 +303,14 @@ Note: Only interpreters that support dependencies can use the 'dependencies' par
 
       success = function(self, output, meta)
         local output = output[#output]
-        local parts = { self.args.interpreter, self.args.script_path }
-        for _, arg in ipairs(self.args.args or {}) do
-          table.insert(parts, vim.fn.escape(arg, " "))
-        end
-        local for_user =
-          string.format("Run skill script successfully: %s", table.concat(parts, " "))
+        local argv = { self.args.interpreter, self.args.script_path, unpack(self.escaped_args) }
+        local for_user = string.format("Run skill script successfully: %s", table.concat(argv, " "))
         meta.tools.chat:add_tool_output(self, output, for_user)
       end,
 
       error = function(self, output, meta)
         local error_msg = output[#output]
-        local parts = { self.args.interpreter, self.args.script_path }
-        for _, arg in ipairs(self.args.args or {}) do
-          table.insert(parts, vim.fn.escape(arg, " "))
-        end
+        local parts = { self.args.interpreter, self.args.script_path, unpack(self.escaped_args) }
         local for_user = string.format(
           "Failed to run skill script: %s. Error: %s",
           table.concat(parts, " "),

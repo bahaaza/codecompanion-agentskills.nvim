@@ -76,12 +76,12 @@ function Skill:read_file(path_in_skill)
   return vim.fn.readblob(self:_normalize_path_in_skill(path_in_skill))
 end
 
----@param script string
----@param args string[]
 ---@param interpreter string
+---@param script string
+---@param args? string[]
 ---@param dependencies? string[]
 ---@param callback fun(ok: boolean, output_or_error: string)
-function Skill:run_script(script, args, interpreter, dependencies, callback)
+function Skill:run_script(interpreter, script, args, dependencies, callback)
   local script_path = self:_normalize_path_in_skill(script)
 
   -- Replace SKILL_DIR placeholder in arguments
