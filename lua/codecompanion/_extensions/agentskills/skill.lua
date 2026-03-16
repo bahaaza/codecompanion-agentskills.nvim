@@ -1,6 +1,14 @@
 local log = require("codecompanion.utils.log")
 local yaml = require("codecompanion._extensions.agentskills.3rd.yaml")
 
+---@class CodeCompanion.AgentSkills.SkillOpts
+---@field scripts_require_approval? boolean Whether to require user approval before running scripts (default: true)
+
+---@type CodeCompanion.AgentSkills.SkillOpts
+local DEFAULT_SKILL_OPTS = {
+  scripts_require_approval = true,
+}
+
 local MD_YAML_FRONTMATTER_QUERY =
   vim.treesitter.query.parse("markdown", "(document (minus_metadata) @yaml_frontmatter)")
 
@@ -29,6 +37,7 @@ end
 ---@class CodeCompanion.AgentSkills.Skill
 ---@field path string
 ---@field meta table<string, any>
+---@field opts CodeCompanion.AgentSkills.SkillOpts Per-skill options
 local Skill = {
   SKILL_DIR_PLACEHOLDER = "${SKILL_DIR}",
 }
@@ -41,9 +50,17 @@ function Skill.load(path)
   if meta == nil then
     error("Failed to parse SKILL.md frontmatter at " .. path)
   end
+
+  -- Get skill options by skill name from global config
+  local skill_name = vim.trim(meta.name)
+  local Extension = require("codecompanion._extensions.agentskills")
+  local global_opts = Extension.get_opts()
+  local skill_opts = global_opts.skill_opts and global_opts.skill_opts[skill_name]
+
   return setmetatable({
     path = path,
     meta = meta,
+    opts = vim.tbl_deep_extend("force", DEFAULT_SKILL_OPTS, skill_opts or {}),
   }, Skill)
 end
 

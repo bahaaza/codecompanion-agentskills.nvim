@@ -8,6 +8,7 @@ local Extension = {}
 ---@field ignore_dirs? string[] List of directory names to ignore during skill discovery
 ---@field script_interpreters? table<string, table> Interpreter-specific configurations
 ---@field disable_demo_skill? boolean Disable the built-in demo-skill (default: false)
+---@field skill_opts? table<string, CodeCompanion.AgentSkills.SkillOpts> Per-skill options
 
 ---@type CodeCompanion.AgentSkills.Opts
 local current_opts = {
@@ -146,11 +147,6 @@ function Extension.setup(opts)
   }
   tools_config.run_skill_script = {
     callback = cc_compat.decorate_tool(tools_module.run_skill_script, version),
-    opts = {
-      allowed_in_yolo_mode = false,
-      require_approval_before = true,
-      require_cmd_approval = true,
-    },
     visible = false,
   }
   tools_config.groups.agent_skills = {

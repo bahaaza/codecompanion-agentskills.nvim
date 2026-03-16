@@ -260,6 +260,15 @@ Note: Only interpreters that support dependencies can use the 'dependencies' par
     },
     handlers = {
       setup = function(self, meta)
+        -- Dynamic approval settings based on scripts_require_approval
+        local AS = require("codecompanion._extensions.agentskills")
+        local skill = AS.get_skill(self.args.skill_name)
+        if skill and skill.opts and skill.opts.scripts_require_approval == false then
+          self.opts.require_approval_before = false
+        else
+          self.opts.require_approval_before = true
+        end
+
         -- Smart argument escaping logic (for display only)
         local args = self.args.args
         if args == vim.NIL or args == nil then
