@@ -20,8 +20,8 @@ You are equipped with a **Progressive Disclosure Agent Skills System**. This all
 2. **Activate**: Call `activate_skill` with the skill name. This injects the skill's specific instructions (SOPs) into your context.
 3. **Execute**: Strictly follow the new instructions provided by the skill.
 4. **Resource Access**: If the skill instructions reference files (docs, templates) or scripts:
-   - Use `load_skill_file` to read text content.
-   - Use `run_skill_script` to execute executable scripts.
+   - Use `load_skill_file` to read files that are **explicitly referenced in the activated skill's documentation**. Never use it for files not mentioned in the skill.
+   - Use `run_skill_script` to execute scripts that are **explicitly listed in the activated skill's documentation**. Never use it for scripts not mentioned in the skill.
 
 ## ⚠️ CRITICAL RULES
 1. **VIRTUAL FILESYSTEM**: Files mentioned within a skill (e.g., `assets/template.md`, `scripts/build.sh`) exist in a **virtual skill directory**, NOT the user's physical workspace.
@@ -94,7 +94,7 @@ function Tools.load_skill_file()
       type = "function",
       ["function"] = {
         name = "load_skill_file",
-        description = "Load a file provided by a skill.",
+        description = "Load a file that is pre-packaged inside an activated skill's directory.\n\n**PREREQUISITE (must satisfy ALL before calling)**:\n1. You have already called `activate_skill` for the target skill.\n2. The skill's documentation **explicitly references** the file path you intend to load.\n3. The `file_path` is copied **verbatim** from the skill's documentation — do NOT construct or guess paths.\n\nIf no file is referenced in the skill documentation, do NOT call this tool. For files in the user's workspace, use standard file reading tools instead. To execute skill scripts, use `run_skill_script`.",
         parameters = {
           type = "object",
           properties = {
@@ -150,6 +150,20 @@ function Tools.load_skill_file()
 end
 
 function Tools.run_skill_script()
+  local interpreters =
+    require("codecompanion._extensions.agentskills.interpreter").get_enabled_interpreters()
+  local interpreter_lines = {}
+  local available_names = {}
+  for name, handler in pairs(interpreters) do
+    table.insert(available_names, name)
+    local deps_note = handler.support_dependencies and " (supports dependencies)" or ""
+    table.insert(interpreter_lines, string.format("- %s%s", name, deps_note))
+  end
+  table.sort(available_names)
+  table.sort(interpreter_lines)
+
+  local interpreter_desc = table.concat(interpreter_lines, "\n")
+
   return {
     name = "run_skill_script",
     schema = {
@@ -157,8 +171,24 @@ function Tools.run_skill_script()
       ["function"] = {
         name = "run_skill_script",
         description = string.format(
-          [[Run a script provided by a skill. The script will be executed in user's current working directory. Use placeholder '%s' in arguments to refer to the skill directory.]],
-          Skill.SKILL_DIR_PLACEHOLDER
+          [[Run a script that is **pre-packaged inside an activated skill's directory**.
+
+**PREREQUISITE (must satisfy ALL before calling)**:
+1. You have already called `activate_skill` for the target skill.
+2. The skill's documentation **explicitly lists** the script path you intend to run.
+3. The `script_path` is copied **verbatim** from the skill's documentation — do NOT construct or guess paths.
+
+If no script is listed in the skill documentation, do NOT call this tool.
+If you need to run a general command unrelated to any skill, this tool CANNOT help — inform the user instead.
+
+The script runs in the user's current working directory. Use placeholder '%s' in arguments to refer to the skill directory.
+
+Supported interpreters:
+%s
+
+Note: Only interpreters that support dependencies can use the 'dependencies' parameter.]],
+          Skill.SKILL_DIR_PLACEHOLDER,
+          interpreter_desc
         ),
         parameters = {
           type = "object",
@@ -173,61 +203,126 @@ function Tools.run_skill_script()
             },
             args = {
               type = "array",
-              items = {
-                type = "string",
-              },
+              items = { type = "string" },
               description = string.format(
                 [[Argument array to pass to the script. Placeholder '%s' will be replaced with the skill directory path. E.g: ["--template", "%s/assets/template.html"].]],
                 Skill.SKILL_DIR_PLACEHOLDER,
                 Skill.SKILL_DIR_PLACEHOLDER
               ),
             },
+            interpreter = {
+              type = "string",
+              enum = available_names,
+              description = "The interpreter to use for running the script.",
+            },
+            dependencies = {
+              type = "array",
+              items = { type = "string" },
+              description = [[List of runtime dependencies. Only supported by interpreters that support dependencies. E.g: ["requests", "numpy>=1.20"].]],
+            },
           },
-          required = { "skill_name", "script_path" },
+          required = { "skill_name", "script_path", "interpreter" },
         },
         strict = true,
       },
     },
     cmds = {
       function(self, args, opts)
+        if args.skill_name == nil then
+          return { status = "error", data = "Missing required parameter: skill_name" }
+        end
+        if args.script_path == nil then
+          return { status = "error", data = "Missing required parameter: script_path" }
+        end
+        if args.interpreter == nil then
+          return { status = "error", data = "Missing required parameter: interpreter" }
+        end
+
         local AS = require("codecompanion._extensions.agentskills")
         local skill = AS.get_skill(args.skill_name)
         if not skill then
           return { status = "error", data = "Skill not found: " .. args.skill_name }
         end
-        skill:run_script(args.script_path, args.args or {}, function(ok, output)
-          if ok then
-            opts.output_cb({ status = "success", data = output })
-          else
-            opts.output_cb({ status = "error", data = output })
-          end
-        end)
+        skill:run_script(
+          args.interpreter,
+          args.script_path,
+          args.args ~= vim.NIL and args.args or nil,
+          args.dependencies ~= vim.NIL and args.dependencies or nil,
+          vim.schedule_wrap(function(ok, output)
+            if ok then
+              opts.output_cb({ status = "success", data = output })
+            else
+              opts.output_cb({ status = "error", data = output })
+            end
+          end)
+        )
       end,
     },
+    handlers = {
+      setup = function(self, meta)
+        -- Dynamic approval settings based on scripts_require_approval
+        local AS = require("codecompanion._extensions.agentskills")
+        local skill = AS.get_skill(self.args.skill_name)
+        if skill and skill.opts and skill.opts.scripts_require_approval == false then
+          self.opts.require_approval_before = false
+        else
+          self.opts.require_approval_before = true
+        end
+
+        -- Smart argument escaping logic (for display only)
+        local args = self.args.args
+        if args == vim.NIL or args == nil then
+          self.escaped_args = {}
+          return
+        end
+
+        local escaped = {}
+        for _, arg in ipairs(args) do
+          if string.match(arg, "^[%w%.%-%_/:]+$") then
+            table.insert(escaped, arg)
+          else
+            table.insert(escaped, vim.fn.shellescape(arg))
+          end
+        end
+
+        self.escaped_args = escaped
+      end,
+    },
+
     output = {
       prompt = function(self)
-        return string.format(
-          "Confirm to run script from skill '%s' ?\n%s %s",
-          self.args.skill_name,
+        local argv = {
+          self.args.interpreter,
           self.args.script_path,
-          table.concat(self.args.args or {}, " ")
-        )
+          unpack(self.escaped_args),
+        }
+
+        local msg = {
+          string.format("Confirm to run script from skill '%s'?", self.args.skill_name),
+          "Command:\n    " .. table.concat(argv, " "),
+        }
+
+        local deps = self.args.dependencies ~= vim.NIL and self.args.dependencies or nil
+        if deps and #deps > 0 then
+          table.insert(msg, "Dependencies:\n    " .. table.concat(deps, ", "))
+        end
+
+        return table.concat(msg, "\n")
       end,
+
       success = function(self, output, meta)
         local output = output[#output]
-        local for_user = string.format(
-          "Run skill script successfully: %s %s",
-          self.args.script_path,
-          table.concat(self.args.args or {}, " ")
-        )
+        local argv = { self.args.interpreter, self.args.script_path, unpack(self.escaped_args) }
+        local for_user = string.format("Run skill script successfully: %s", table.concat(argv, " "))
         meta.tools.chat:add_tool_output(self, output, for_user)
       end,
+
       error = function(self, output, meta)
         local error_msg = output[#output]
+        local parts = { self.args.interpreter, self.args.script_path, unpack(self.escaped_args) }
         local for_user = string.format(
-          "Failed to run skill script: %s %s. Error: %s",
-          self.args.script_path,
-          table.concat(self.args.args or {}, " "),
+          "Failed to run skill script: %s. Error: %s",
+          table.concat(parts, " "),
           error_msg
         )
         meta.tools.chat:add_tool_output(self, error_msg, for_user)
