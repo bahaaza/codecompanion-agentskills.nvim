@@ -1,0 +1,56 @@
+name: Tests
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        nvim-version: [v0.11.0, stable]
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install Neovim
+        uses: rhysd/action-setup-vim@v1
+        with:
+          neovim: true
+          version: ${{ matrix.nvim-version }}
+      
+      - name: Cache Tree-sitter parsers
+        uses: actions/cache@v4
+        with:
+          path: deps/parsers
+          key: parsers-${{ hashFiles('tests/minimal_init.lua') }}
+          restore-keys: |
+            parsers-
+      
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: deps
+          key: deps-${{ hashFiles('Makefile') }}
+          restore-keys: |
+            deps-
+      
+      - name: Install dependencies
+        run: make deps
+      
+      - name: Run tests
+        run: make test
+      
+      - name: Upload test output on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-output-${{ matrix.nvim-version }}
+          path: |
+            tests/screenshots/
+            *.log
+          retention-days: 7
