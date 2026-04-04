@@ -233,12 +233,12 @@ T["Tools"]["load_skill_file errors for file outside skill directory"] = function
     local Tools = require("codecompanion._extensions.agentskills.tools")
     local tool = Tools.load_skill_file()
     
-    -- Create a mock skill that rejects path traversal
+    -- Create a mock skill that raises error on traversal (matches real behavior)
     local mock_skill = {
       read_file = function(self, path)
-        -- Simulate path traversal rejection
+        -- Simulate path traversal rejection with error (matches real Skill:read_file behavior)
         if path:find("%.%.") or path:find("^/") then
-          return nil  -- Reject path traversal attempts
+          error("Path traversal detected in skill file access")
         end
         return nil
       end,
@@ -262,7 +262,7 @@ T["Tools"]["load_skill_file errors for file outside skill directory"] = function
   ]])
 
   h.eq("error", result.status)
-  h.expect_contains("File not found", result.data)
+  h.expect_contains("Failed to read file", result.data)
 end
 
 T["Tools"]["load_skill_file returns file content on success"] = function()
@@ -331,15 +331,17 @@ end
 
 T["Tools"]["run_skill_script validates required parameters - missing skill_name"] = function()
   local result = child.lua([[
-    local Tools = require("codecompanion._extensions.agentskills.tools")
-    local tool = Tools.run_skill_script()
-    
-    -- Mock interpreters
+    -- Mock interpreters FIRST (before loading tools)
     package.loaded["codecompanion._extensions.agentskills.interpreter"] = {
       get_enabled_interpreters = function()
         return { bash = {} }
       end,
     }
+    
+    -- Clear and reload Tools to pick up the mock
+    package.loaded["codecompanion._extensions.agentskills.tools"] = nil
+    local Tools = require("codecompanion._extensions.agentskills.tools")
+    local tool = Tools.run_skill_script()
     
     -- Call the cmds function with missing skill_name
     local cmd_func = tool.cmds[1]
@@ -358,15 +360,17 @@ end
 
 T["Tools"]["run_skill_script validates required parameters - missing script_path"] = function()
   local result = child.lua([[
-    local Tools = require("codecompanion._extensions.agentskills.tools")
-    local tool = Tools.run_skill_script()
-    
-    -- Mock interpreters
+    -- Mock interpreters FIRST (before loading tools)
     package.loaded["codecompanion._extensions.agentskills.interpreter"] = {
       get_enabled_interpreters = function()
         return { bash = {} }
       end,
     }
+    
+    -- Clear and reload Tools to pick up the mock
+    package.loaded["codecompanion._extensions.agentskills.tools"] = nil
+    local Tools = require("codecompanion._extensions.agentskills.tools")
+    local tool = Tools.run_skill_script()
     
     -- Call the cmds function with missing script_path
     local cmd_func = tool.cmds[1]
@@ -385,15 +389,17 @@ end
 
 T["Tools"]["run_skill_script validates required parameters - missing interpreter"] = function()
   local result = child.lua([[
-    local Tools = require("codecompanion._extensions.agentskills.tools")
-    local tool = Tools.run_skill_script()
-    
-    -- Mock interpreters
+    -- Mock interpreters FIRST (before loading tools)
     package.loaded["codecompanion._extensions.agentskills.interpreter"] = {
       get_enabled_interpreters = function()
         return { bash = {} }
       end,
     }
+    
+    -- Clear and reload Tools to pick up the mock
+    package.loaded["codecompanion._extensions.agentskills.tools"] = nil
+    local Tools = require("codecompanion._extensions.agentskills.tools")
+    local tool = Tools.run_skill_script()
     
     -- Call the cmds function with missing interpreter
     local cmd_func = tool.cmds[1]
@@ -449,15 +455,16 @@ end
 
 T["Tools"]["run_skill_script errors for unsupported interpreter"] = function()
   local result = child.lua([[
-    local Tools = require("codecompanion._extensions.agentskills.tools")
-    
-    -- Mock interpreters - only bash available, not ruby
+    -- Mock interpreters FIRST (before loading tools) - only bash available, not ruby
     package.loaded["codecompanion._extensions.agentskills.interpreter"] = {
       get_enabled_interpreters = function()
         return { bash = {} }
       end,
     }
     
+    -- Clear and reload Tools to pick up the mock
+    package.loaded["codecompanion._extensions.agentskills.tools"] = nil
+    local Tools = require("codecompanion._extensions.agentskills.tools")
     local tool = Tools.run_skill_script()
     
     -- The schema should not include ruby in the enum

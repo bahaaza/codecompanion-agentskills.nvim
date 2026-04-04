@@ -2,10 +2,10 @@
 -- Sets up runtime path and loads required dependencies
 
 -- Add dependencies to runtime path FIRST (so they are searched first for codecompanion)
-vim.opt.rtp:append("deps/mini.nvim")
-vim.opt.rtp:append("deps/plenary.nvim")
-vim.opt.rtp:append("deps/nvim-treesitter")
-vim.opt.rtp:append("deps/codecompanion.nvim")
+vim.opt.rtp:prepend("deps/mini.nvim")
+vim.opt.rtp:prepend("deps/plenary.nvim")
+vim.opt.rtp:prepend("deps/nvim-treesitter")
+vim.opt.rtp:prepend("deps/codecompanion.nvim")
 
 -- Set current project to runtime path AFTER codecompanion (so our _extensions override)
 vim.opt.rtp:append(vim.fn.getcwd())

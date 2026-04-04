@@ -15,14 +15,20 @@ end
 
 ---Setup codecompanion in child process
 ---@param child table
----@param config? table
+---@param config? table Optional config overrides to merge with base test config
 function Helpers.setup_codecompanion(child, config)
   config = config or {}
-  -- Just load the test config directly in child process
-  child.lua([[
+  child.lua(
+    [[
+    local overrides = ...
     local config = require("tests.config")
+    if overrides and next(overrides) ~= nil then
+      config = vim.tbl_deep_extend("force", config, overrides)
+    end
     require("codecompanion").setup(config)
-  ]])
+  ]],
+    { config }
+  )
 end
 
 ---Setup agentskills extension in child process

@@ -12,10 +12,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        nvim-version: [v0.11.0, stable]
+        nvim-version: [stable, nightly]
     
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       
       - name: Install Neovim
         uses: rhysd/action-setup-vim@v1
@@ -24,7 +24,7 @@ jobs:
           version: ${{ matrix.nvim-version }}
       
       - name: Cache Tree-sitter parsers
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: deps/parsers
           key: parsers-${{ hashFiles('tests/minimal_init.lua') }}
@@ -32,7 +32,7 @@ jobs:
             parsers-
       
       - name: Cache dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: deps
           key: deps-${{ hashFiles('Makefile') }}
@@ -47,7 +47,7 @@ jobs:
       
       - name: Upload test output on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: test-output-${{ matrix.nvim-version }}
           path: |

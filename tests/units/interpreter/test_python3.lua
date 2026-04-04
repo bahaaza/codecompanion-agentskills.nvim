@@ -1,4 +1,9 @@
 -- Tests for lua/codecompanion/_extensions/agentskills/interpreter/python3.lua
+--
+-- NOTE: This test uses real Python commands per the mock principle:
+-- "Use real local commands, mock third-party dependencies."
+-- The venv creation and script execution are intentionally real to ensure
+-- correct integration behavior.
 local h = require("tests.helpers")
 local new_set = MiniTest.new_set
 local child = MiniTest.new_child_neovim()
@@ -270,14 +275,12 @@ T["Python3Interpreter"]["run reuses existing venv"] = function()
       return { skipped = true, reason = "python3 not available" }
     end
     
-    -- Create the venv directory structure to simulate existing venv
-    local bin_dir = vim.fs.joinpath(temp_venv, "bin")
-    vim.fn.mkdir(bin_dir, "p")
-    
-    -- Create a fake python executable to indicate venv exists
-    local fake_python = vim.fs.joinpath(bin_dir, "python")
-    vim.fn.writefile({ "#!/bin/bash", "echo 'fake python'" }, fake_python)
-    vim.fn.setfperm(fake_python, "rwx------")
+    -- Create a real virtual environment at the temp venv path
+    -- Using real Python per mock principle: "Use real local commands"
+    local create_result = vim.fn.system({ "python3", "-m", "venv", temp_venv })
+    if vim.v.shell_error ~= 0 then
+      return { skipped = true, reason = "Failed to create venv: " .. create_result }
+    end
     
     -- Create a minimal skill mock
     local skill = {
@@ -315,8 +318,8 @@ T["Python3Interpreter"]["run reuses existing venv"] = function()
 
   if not result.skipped then
     h.eq(true, result.waited, "Callback should have been called")
-    -- Note: This test may fail if the fake python doesn't work
-    -- The important thing is that it doesn't try to create a new venv
+    h.eq(true, result.success, "Script should run successfully")
+    h.expect_contains("reused venv", result.output)
   end
 end
 
@@ -337,6 +340,31 @@ T["Python3Interpreter"]["run installs dependencies"] = function()
       return { skipped = true, reason = "python3 not available" }
     end
     
+    -- Mock vim.system for pip install only (per mock principle: mock third-party deps)
+    -- Let other commands (venv creation, python execution) proceed normally
+    local orig_system = vim.system
+    local system_calls = {}
+    
+    vim.system = function(cmd, opts, callback)
+      table.insert(system_calls, { cmd = vim.deepcopy(cmd), opts = opts })
+      
+      -- Mock pip/uv install commands
+      local cmd_str = table.concat(cmd, " ")
+      if cmd_str:match("pip install") or cmd_str:match("uv pip") then
+        -- Simulate successful install without network
+        local result = { code = 0, stdout = "", stderr = "" }
+        if callback then
+          callback(result)
+          return { wait = function() return result end }
+        else
+          return { wait = function() return result end }
+        end
+      end
+      
+      -- Let other commands (venv creation, python execution) proceed normally
+      return orig_system(cmd, opts, callback)
+    end
+    
     -- Create a minimal skill mock
     local skill = {
       path = vim.fn.tempname(),
@@ -344,12 +372,11 @@ T["Python3Interpreter"]["run installs dependencies"] = function()
     }
     vim.fn.mkdir(skill.path, "p")
     
-    -- Create a test script that imports a simple module
+    -- Create a test script that prints a message
+    -- Note: We don't actually import faker since we mocked the install
     local script_path = vim.fs.joinpath(skill.path, "test_deps.py")
     vim.fn.writefile({ 
-      "import sys",
-      "import faker",
-      "print('python path:', sys.path[0])",
+      "print('dependencies test')",
     }, script_path)
     
     local ok, output
@@ -358,11 +385,14 @@ T["Python3Interpreter"]["run installs dependencies"] = function()
       output = out
     end
     
-    -- Run with a simple dependency (just to test the flow)
+    -- Run with a dependency (pip install will be mocked)
     interp:run(script_path, {}, skill, { "faker==40.11.0" }, callback)
     
-    -- Wait for async callback (longer timeout for pip install)
-    local waited = vim.wait(60000, function() return ok ~= nil end, 100)
+    -- Wait for async callback
+    local waited = vim.wait(30000, function() return ok ~= nil end, 100)
+    
+    -- Restore vim.system
+    vim.system = orig_system
     
     -- Cleanup
     vim.fn.delete(skill.path, "rf")
@@ -373,11 +403,23 @@ T["Python3Interpreter"]["run installs dependencies"] = function()
       output = output,
       waited = waited,
       skipped = false,
+      system_calls = system_calls,
     }
   ]])
 
   if not result.skipped then
     h.eq(true, result.waited, "Callback should have been called")
+
+    -- Verify that pip install was called with correct package
+    local found_pip_install = false
+    for _, call in ipairs(result.system_calls) do
+      local cmd_str = table.concat(call.cmd, " ")
+      if cmd_str:match("pip install") and cmd_str:match("faker==40%.11%.0") then
+        found_pip_install = true
+        break
+      end
+    end
+    h.eq(true, found_pip_install, "pip install should have been called with faker==40.11.0")
   end
 end
 

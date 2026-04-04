@@ -119,7 +119,12 @@ function Tools.load_skill_file()
         if not skill then
           return { status = "error", data = "Skill not found: " .. args.skill_name }
         end
-        local content = skill:read_file(args.file_path)
+        local ok, content = pcall(function()
+          return skill:read_file(args.file_path)
+        end)
+        if not ok then
+          return { status = "error", data = "Failed to read file: " .. tostring(content) }
+        end
         if not content then
           return { status = "error", data = "File not found in skill: " .. args.file_path }
         end

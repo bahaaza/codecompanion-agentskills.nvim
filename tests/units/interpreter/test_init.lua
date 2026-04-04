@@ -113,42 +113,21 @@ T["Interpreter"]["run errors on unregistered interpreter"] = function()
   h.expect_contains("not registered", result.output)
 end
 
-T["Interpreter"]["run errors on unavailable interpreter"] = function()
+T["Interpreter"]["get_enabled_interpreters returns availability flags"] = function()
+  -- This test verifies that get_enabled_interpreters returns interpreter
+  -- availability as boolean flags, not that run() errors on unavailable interpreters.
   local result = child.lua([[
-    local Interpreter = require("codecompanion._extensions.agentskills.interpreter.init")
-    
-    -- Setup with a mock that will be unavailable
-    local SimpleInterpreter = require("codecompanion._extensions.agentskills.interpreter.simple")
-    
-    -- Register an interpreter that doesn't exist
-    local mock_handler = SimpleInterpreter.new("nonexistent_command_xyz123")
-    
-    -- Manually inject into handlers (simulating registration)
-    package.loaded["codecompanion._extensions.agentskills.interpreter.init"] = nil
     local Interpreter = require("codecompanion._extensions.agentskills.interpreter.init")
     Interpreter.setup({})
     
-    -- Now try to run with an interpreter that won't be available
-    local ok, output
-    local callback = function(success, out)
-      ok = success
-      output = out
-    end
-    
-    -- Use bash but mock it as unavailable
-    -- Actually, let's test with a truly unavailable command
-    -- We need to check if bash is available first
     local enabled = Interpreter.get_enabled_interpreters()
     
-    -- If bash is available, we need another approach
-    -- Let's just verify the error message format for unavailable interpreters
     return {
       has_bash = enabled.bash ~= nil,
     }
   ]])
 
-  -- This test just verifies the setup works
-  -- The actual "unavailable" test would require mocking
+  -- Verify that availability is returned as a boolean flag
   h.eq(true, type(result.has_bash) == "boolean")
 end
 
