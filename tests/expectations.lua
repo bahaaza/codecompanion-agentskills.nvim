@@ -22,6 +22,30 @@ end, function(pattern, str)
   )
 end)
 
+---Custom expectation: truthy value
+---@param value any
+---@return boolean
+H.is_true = MiniTest.new_expectation("is true", function(value)
+  return value == true
+end, function(value)
+  return string.format(
+    "\nExpected: true\nActual: %s",
+    vim.inspect(value)
+  )
+end)
+
+---Custom expectation: falsy value
+---@param value any
+---@return boolean
+H.is_false = MiniTest.new_expectation("is false", function(value)
+  return value == false
+end, function(value)
+  return string.format(
+    "\nExpected: false\nActual: %s",
+    vim.inspect(value)
+  )
+end)
+
 ---Custom expectation: table contains value
 ---@param value any
 ---@param tbl table

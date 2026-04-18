@@ -6,6 +6,7 @@ vim.opt.rtp:prepend("deps/mini.nvim")
 vim.opt.rtp:prepend("deps/plenary.nvim")
 vim.opt.rtp:prepend("deps/nvim-treesitter")
 vim.opt.rtp:prepend("deps/codecompanion.nvim")
+vim.opt.rtp:prepend("deps/codecompanion.nvim/tests") -- For tests.mocks.http
 
 -- Set current project to runtime path AFTER codecompanion (so our _extensions override)
 vim.opt.rtp:append(vim.fn.getcwd())

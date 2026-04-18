@@ -24,21 +24,21 @@ T["CCCompat.decorate_tool"] = new_set({
 T["CCCompat.decorate_tool"]["returns original function for v19+"] = function()
   local result = child.lua([[
     local CCCompat = require("codecompanion._extensions.agentskills.cc_compat")
-    
+
     local call_count = 0
     local original_tool = function()
       call_count = call_count + 1
       return { name = "test_tool", call_count = call_count }
     end
-    
+
     local decorated = CCCompat.decorate_tool(original_tool, 19)
-    
+
     -- For v19+, should return the exact same function
     local is_same = decorated == original_tool
-    
+
     -- Verify it still works
     local tool = decorated()
-    
+
     return {
       is_same_function = is_same,
       tool_name = tool.name,
@@ -54,13 +54,13 @@ end
 T["CCCompat.decorate_tool"]["returns original function for v20+"] = function()
   local result = child.lua([[
     local CCCompat = require("codecompanion._extensions.agentskills.cc_compat")
-    
+
     local original_tool = function()
       return { name = "test_tool" }
     end
-    
+
     local decorated = CCCompat.decorate_tool(original_tool, 20)
-    
+
     return {
       is_same_function = decorated == original_tool,
     }
@@ -72,7 +72,7 @@ end
 T["CCCompat.decorate_tool"]["adapts output.success signature for v18"] = function()
   local result = child.lua([[
     local CCCompat = require("codecompanion._extensions.agentskills.cc_compat")
-    
+
     local v19_success_args = nil
     local original_tool = function()
       return {
@@ -89,13 +89,13 @@ T["CCCompat.decorate_tool"]["adapts output.success signature for v18"] = functio
         },
       }
     end
-    
+
     local decorated = CCCompat.decorate_tool(original_tool, 18)
     local tool = decorated()
-    
+
     -- Call v18 signature: success(self, tools, cmd, output)
     local ret = tool.output.success("self_val", "tools_val", "cmd_val", "output_val")
-    
+
     return {
       return_value = ret,
       captured_args = v19_success_args,
@@ -111,7 +111,7 @@ end
 T["CCCompat.decorate_tool"]["adapts output.error signature for v18"] = function()
   local result = child.lua([[
     local CCCompat = require("codecompanion._extensions.agentskills.cc_compat")
-    
+
     local v19_error_args = nil
     local original_tool = function()
       return {
@@ -128,13 +128,13 @@ T["CCCompat.decorate_tool"]["adapts output.error signature for v18"] = function(
         },
       }
     end
-    
+
     local decorated = CCCompat.decorate_tool(original_tool, 18)
     local tool = decorated()
-    
+
     -- Call v18 signature: error(self, tools, cmd, output)
     local ret = tool.output.error("self_val", "tools_val", "cmd_val", "error_output")
-    
+
     return {
       return_value = ret,
       captured_args = v19_error_args,
@@ -150,7 +150,7 @@ end
 T["CCCompat.decorate_tool"]["adapts output.prompt signature for v18"] = function()
   local result = child.lua([[
     local CCCompat = require("codecompanion._extensions.agentskills.cc_compat")
-    
+
     local v19_prompt_self = nil
     local original_tool = function()
       return {
@@ -163,13 +163,13 @@ T["CCCompat.decorate_tool"]["adapts output.prompt signature for v18"] = function
         },
       }
     end
-    
+
     local decorated = CCCompat.decorate_tool(original_tool, 18)
     local tool = decorated()
-    
+
     -- Call v18 signature: prompt(self, tools)
     local ret = tool.output.prompt("self_val", "tools_val")
-    
+
     return {
       return_value = ret,
       captured_self = v19_prompt_self,
@@ -183,7 +183,7 @@ end
 T["CCCompat.decorate_tool"]["adapts cmds output_cb for v18"] = function()
   local result = child.lua([[
     local CCCompat = require("codecompanion._extensions.agentskills.cc_compat")
-    
+
     local captured_opts = nil
     local original_tool = function()
       return {
@@ -200,19 +200,19 @@ T["CCCompat.decorate_tool"]["adapts cmds output_cb for v18"] = function()
         },
       }
     end
-    
+
     local decorated = CCCompat.decorate_tool(original_tool, 18)
     local tool = decorated()
-    
+
     -- Track what output_handler receives
     local handler_result = nil
     local output_handler = function(result)
       handler_result = result
     end
-    
+
     -- Call v18 signature: cmd(self, args, input, output_handler)
     local ret = tool.cmds[1]("self_val", "args_val", "input_val", output_handler)
-    
+
     return {
       return_value = ret,
       has_output_cb = captured_opts ~= nil and captured_opts.output_cb ~= nil,
@@ -229,17 +229,17 @@ end
 T["CCCompat.decorate_tool"]["handles tool without output for v18"] = function()
   local result = child.lua([[
     local CCCompat = require("codecompanion._extensions.agentskills.cc_compat")
-    
+
     local original_tool = function()
       return {
         name = "test_tool",
         -- No output field
       }
     end
-    
+
     local decorated = CCCompat.decorate_tool(original_tool, 18)
     local tool = decorated()
-    
+
     return {
       name = tool.name,
       has_output = tool.output ~= nil,
@@ -253,7 +253,7 @@ end
 T["CCCompat.decorate_tool"]["handles tool without cmds for v18"] = function()
   local result = child.lua([[
     local CCCompat = require("codecompanion._extensions.agentskills.cc_compat")
-    
+
     local original_tool = function()
       return {
         name = "test_tool",
@@ -263,10 +263,10 @@ T["CCCompat.decorate_tool"]["handles tool without cmds for v18"] = function()
         -- No cmds field
       }
     end
-    
+
     local decorated = CCCompat.decorate_tool(original_tool, 18)
     local tool = decorated()
-    
+
     return {
       name = tool.name,
       has_cmds = tool.cmds ~= nil,
@@ -280,17 +280,17 @@ end
 T["CCCompat.decorate_tool"]["handles tool with empty cmds array for v18"] = function()
   local result = child.lua([[
     local CCCompat = require("codecompanion._extensions.agentskills.cc_compat")
-    
+
     local original_tool = function()
       return {
         name = "test_tool",
         cmds = {}, -- Empty array
       }
     end
-    
+
     local decorated = CCCompat.decorate_tool(original_tool, 18)
     local tool = decorated()
-    
+
     return {
       name = tool.name,
       cmds_count = #tool.cmds,

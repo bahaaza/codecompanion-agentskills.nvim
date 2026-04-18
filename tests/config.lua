@@ -6,6 +6,7 @@ return {
     http = {
       test_adapter = {
         name = "test_adapter",
+        formatted_name = "Test Adapter",
         url = "https://example.com/v1/chat/completions",
         roles = {
           llm = "assistant",

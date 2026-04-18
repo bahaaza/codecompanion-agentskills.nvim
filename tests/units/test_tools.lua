@@ -39,14 +39,14 @@ T["Tools"]["activate_skill returns error for non-existent skill"] = function()
         return {}
       end,
     }
-    
+
     local Tools = require("codecompanion._extensions.agentskills.tools")
     local tool = Tools.activate_skill()
-    
+
     -- Call the cmds function
     local cmd_func = tool.cmds[1]
     local output = cmd_func(nil, { skill_name = "nonexistent_skill" })
-    
+
     return {
       status = output.status,
       data = output.data,
@@ -66,7 +66,7 @@ T["Tools"]["activate_skill returns skill on success"] = function()
       description = function(self) return "A test skill" end,
       read_content = function(self) return "# Test Skill Content" end,
     }
-    
+
     -- Mock the AS module FIRST (before loading tools)
     package.loaded["codecompanion._extensions.agentskills"] = {
       get_skill = function(name)
@@ -77,14 +77,14 @@ T["Tools"]["activate_skill returns skill on success"] = function()
         return { ["test-skill"] = mock_skill }
       end,
     }
-    
+
     local Tools = require("codecompanion._extensions.agentskills.tools")
     local tool = Tools.activate_skill()
-    
+
     -- Call the cmds function
     local cmd_func = tool.cmds[1]
     local output = cmd_func(nil, { skill_name = "test-skill" })
-    
+
     return {
       status = output.status,
       skill_name = output.data and output.data:name(),
@@ -98,7 +98,7 @@ end
 T["Tools"]["activate_skill generates correct system_prompt"] = function()
   local result = child.lua([[
     local Tools = require("codecompanion._extensions.agentskills.tools")
-    
+
     -- Create mock skills
     local mock_skills = {
       ["skill-a"] = {
@@ -110,17 +110,17 @@ T["Tools"]["activate_skill generates correct system_prompt"] = function()
         description = function(self) return "Second skill" end,
       },
     }
-    
+
     -- Mock the AS module
     package.loaded["codecompanion._extensions.agentskills"] = {
       get_skills = function()
         return mock_skills
       end,
     }
-    
+
     local tool = Tools.activate_skill()
     local system_prompt = tool.system_prompt
-    
+
     return {
       has_workflow = system_prompt:find("Workflow") ~= nil,
       has_rules = system_prompt:find("CRITICAL RULES") ~= nil,
@@ -138,33 +138,22 @@ T["Tools"]["activate_skill generates correct system_prompt"] = function()
 end
 
 T["Tools"]["activate_skill schema has correct structure"] = function()
-  local result = child.lua([[
+  child.lua([[
     -- Mock the AS module FIRST (before loading tools)
     package.loaded["codecompanion._extensions.agentskills"] = {
-      get_skills = function()
-        return {}
-      end,
+      get_skills = function() return {} end,
     }
-    
+
     local Tools = require("codecompanion._extensions.agentskills.tools")
     local tool = Tools.activate_skill()
-    
-    return {
-      name = tool.name,
-      has_schema = tool.schema ~= nil,
-      schema_type = tool.schema.type,
-      func_name = tool.schema["function"].name,
-      has_skill_name_param = tool.schema["function"].parameters.properties.skill_name ~= nil,
-      skill_name_required = vim.list_contains(tool.schema["function"].parameters.required, "skill_name"),
-    }
-  ]])
 
-  h.eq("activate_skill", result.name)
-  h.eq(true, result.has_schema)
-  h.eq("function", result.schema_type)
-  h.eq("activate_skill", result.func_name)
-  h.eq(true, result.has_skill_name_param)
-  h.eq(true, result.skill_name_required)
+    local h = require("tests.helpers")
+    h.assert_tool_schema(tool, {
+      name = "activate_skill",
+      params = { "skill_name" },
+      required = { "skill_name" },
+    })
+  ]])
 end
 
 -- ==================== load_skill_file tests ====================
@@ -173,18 +162,18 @@ T["Tools"]["load_skill_file errors for non-existent skill"] = function()
   local result = child.lua([[
     local Tools = require("codecompanion._extensions.agentskills.tools")
     local tool = Tools.load_skill_file()
-    
+
     -- Mock the AS module
     package.loaded["codecompanion._extensions.agentskills"] = {
       get_skill = function(name)
         return nil
       end,
     }
-    
+
     -- Call the cmds function
     local cmd_func = tool.cmds[1]
     local output = cmd_func(nil, { skill_name = "nonexistent", file_path = "test.md" })
-    
+
     return {
       status = output.status,
       data = output.data,
@@ -199,25 +188,25 @@ T["Tools"]["load_skill_file errors for file not found in skill"] = function()
   local result = child.lua([[
     local Tools = require("codecompanion._extensions.agentskills.tools")
     local tool = Tools.load_skill_file()
-    
+
     -- Create a mock skill
     local mock_skill = {
       read_file = function(self, path)
         return nil  -- File not found
       end,
     }
-    
+
     -- Mock the AS module
     package.loaded["codecompanion._extensions.agentskills"] = {
       get_skill = function(name)
         return mock_skill
       end,
     }
-    
+
     -- Call the cmds function
     local cmd_func = tool.cmds[1]
     local output = cmd_func(nil, { skill_name = "test-skill", file_path = "nonexistent.md" })
-    
+
     return {
       status = output.status,
       data = output.data,
@@ -232,7 +221,7 @@ T["Tools"]["load_skill_file errors for file outside skill directory"] = function
   local result = child.lua([[
     local Tools = require("codecompanion._extensions.agentskills.tools")
     local tool = Tools.load_skill_file()
-    
+
     -- Create a mock skill that raises error on traversal (matches real behavior)
     local mock_skill = {
       read_file = function(self, path)
@@ -243,18 +232,18 @@ T["Tools"]["load_skill_file errors for file outside skill directory"] = function
         return nil
       end,
     }
-    
+
     -- Mock the AS module
     package.loaded["codecompanion._extensions.agentskills"] = {
       get_skill = function(name)
         return mock_skill
       end,
     }
-    
+
     -- Call the cmds function with path traversal attempt
     local cmd_func = tool.cmds[1]
     local output = cmd_func(nil, { skill_name = "test-skill", file_path = "../../../etc/passwd" })
-    
+
     return {
       status = output.status,
       data = output.data,
@@ -269,7 +258,7 @@ T["Tools"]["load_skill_file returns file content on success"] = function()
   local result = child.lua([[
     local Tools = require("codecompanion._extensions.agentskills.tools")
     local tool = Tools.load_skill_file()
-    
+
     -- Create a mock skill
     local mock_skill = {
       read_file = function(self, path)
@@ -279,18 +268,18 @@ T["Tools"]["load_skill_file returns file content on success"] = function()
         return nil
       end,
     }
-    
+
     -- Mock the AS module
     package.loaded["codecompanion._extensions.agentskills"] = {
       get_skill = function(name)
         return mock_skill
       end,
     }
-    
+
     -- Call the cmds function
     local cmd_func = tool.cmds[1]
     local output = cmd_func(nil, { skill_name = "test-skill", file_path = "docs/guide.md" })
-    
+
     return {
       status = output.status,
       has_content = output.data ~= nil,
@@ -304,137 +293,80 @@ T["Tools"]["load_skill_file returns file content on success"] = function()
 end
 
 T["Tools"]["load_skill_file schema has correct structure"] = function()
-  local result = child.lua([[
+  child.lua([[
     local Tools = require("codecompanion._extensions.agentskills.tools")
     local tool = Tools.load_skill_file()
-    
-    local params = tool.schema["function"].parameters
-    local required = params.required or {}
-    
-    return {
-      name = tool.name,
-      has_skill_name = params.properties.skill_name ~= nil,
-      has_file_path = params.properties.file_path ~= nil,
-      skill_name_required = vim.list_contains(params.required, "skill_name"),
-      file_path_required = vim.list_contains(params.required, "file_path"),
-    }
-  ]])
 
-  h.eq("load_skill_file", result.name)
-  h.eq(true, result.has_skill_name)
-  h.eq(true, result.has_file_path)
-  h.eq(true, result.skill_name_required)
-  h.eq(true, result.file_path_required)
+    local h = require("tests.helpers")
+    h.assert_tool_schema(tool, {
+      name = "load_skill_file",
+      params = { "skill_name", "file_path" },
+      required = { "skill_name", "file_path" },
+    })
+  ]])
 end
 
 -- ==================== run_skill_script tests ====================
 
-T["Tools"]["run_skill_script validates required parameters - missing skill_name"] = function()
-  local result = child.lua([[
-    -- Mock interpreters FIRST (before loading tools)
-    package.loaded["codecompanion._extensions.agentskills.interpreter"] = {
-      get_enabled_interpreters = function()
-        return { bash = {} }
-      end,
-    }
-    
-    -- Clear and reload Tools to pick up the mock
-    package.loaded["codecompanion._extensions.agentskills.tools"] = nil
-    local Tools = require("codecompanion._extensions.agentskills.tools")
-    local tool = Tools.run_skill_script()
-    
-    -- Call the cmds function with missing skill_name
-    local cmd_func = tool.cmds[1]
-    local output = cmd_func(nil, { script_path = "test.sh", interpreter = "bash" }, {})
-    
-    return {
-      status = output.status,
-      data = output.data,
-    }
-  ]])
+-- Parameterized test for missing required parameters
+local missing_params_cases = {
+  { missing = "skill_name", args = { script_path = "test.sh", interpreter = "bash" } },
+  { missing = "script_path", args = { skill_name = "test", interpreter = "bash" } },
+  { missing = "interpreter", args = { skill_name = "test", script_path = "test.sh" } },
+}
 
-  h.eq("error", result.status)
-  h.expect_contains("Missing required parameter", result.data)
-  h.expect_contains("skill_name", result.data)
-end
+for _, case in ipairs(missing_params_cases) do
+  T["Tools"]["run_skill_script validates missing " .. case.missing] = function()
+    local result = child.lua([[
+      local case = ...
 
-T["Tools"]["run_skill_script validates required parameters - missing script_path"] = function()
-  local result = child.lua([[
-    -- Mock interpreters FIRST (before loading tools)
-    package.loaded["codecompanion._extensions.agentskills.interpreter"] = {
-      get_enabled_interpreters = function()
-        return { bash = {} }
-      end,
-    }
-    
-    -- Clear and reload Tools to pick up the mock
-    package.loaded["codecompanion._extensions.agentskills.tools"] = nil
-    local Tools = require("codecompanion._extensions.agentskills.tools")
-    local tool = Tools.run_skill_script()
-    
-    -- Call the cmds function with missing script_path
-    local cmd_func = tool.cmds[1]
-    local output = cmd_func(nil, { skill_name = "test-skill", interpreter = "bash" }, {})
-    
-    return {
-      status = output.status,
-      data = output.data,
-    }
-  ]])
+      -- Mock interpreters FIRST (before loading tools)
+      package.loaded["codecompanion._extensions.agentskills.interpreter"] = {
+        get_enabled_interpreters = function()
+          return { bash = {} }
+        end,
+      }
 
-  h.eq("error", result.status)
-  h.expect_contains("Missing required parameter", result.data)
-  h.expect_contains("script_path", result.data)
-end
+      -- Clear and reload Tools to pick up the mock
+      package.loaded["codecompanion._extensions.agentskills.tools"] = nil
+      local Tools = require("codecompanion._extensions.agentskills.tools")
+      local tool = Tools.run_skill_script()
 
-T["Tools"]["run_skill_script validates required parameters - missing interpreter"] = function()
-  local result = child.lua([[
-    -- Mock interpreters FIRST (before loading tools)
-    package.loaded["codecompanion._extensions.agentskills.interpreter"] = {
-      get_enabled_interpreters = function()
-        return { bash = {} }
-      end,
-    }
-    
-    -- Clear and reload Tools to pick up the mock
-    package.loaded["codecompanion._extensions.agentskills.tools"] = nil
-    local Tools = require("codecompanion._extensions.agentskills.tools")
-    local tool = Tools.run_skill_script()
-    
-    -- Call the cmds function with missing interpreter
-    local cmd_func = tool.cmds[1]
-    local output = cmd_func(nil, { skill_name = "test-skill", script_path = "test.sh" }, {})
-    
-    return {
-      status = output.status,
-      data = output.data,
-    }
-  ]])
+      -- Call the cmds function with missing parameter
+      local cmd_func = tool.cmds[1]
+      local output = cmd_func(nil, case.args, {})
 
-  h.eq("error", result.status)
-  h.expect_contains("Missing required parameter", result.data)
-  h.expect_contains("interpreter", result.data)
+      return {
+        status = output.status,
+        data = output.data,
+      }
+    ]], { case })
+
+    h.eq("error", result.status)
+    h.expect_contains("Missing required parameter", result.data)
+    h.expect_contains(case.missing, result.data)
+  end
 end
 
 T["Tools"]["run_skill_script errors for non-existent skill"] = function()
   local result = child.lua([[
     local Tools = require("codecompanion._extensions.agentskills.tools")
     local tool = Tools.run_skill_script()
-    
+
     -- Mock interpreters
     package.loaded["codecompanion._extensions.agentskills.interpreter"] = {
       get_enabled_interpreters = function()
         return { bash = {} }
       end,
     }
-    
+
     -- Mock AS module
     package.loaded["codecompanion._extensions.agentskills"] = {
       get_skill = function(name)
         return nil
       end,
     }
-    
+
     -- Call the cmds function
     local cmd_func = tool.cmds[1]
     local output = cmd_func(nil, { 
@@ -442,7 +374,7 @@ T["Tools"]["run_skill_script errors for non-existent skill"] = function()
       script_path = "test.sh", 
       interpreter = "bash" 
     }, {})
-    
+
     return {
       status = output.status,
       data = output.data,
@@ -461,15 +393,15 @@ T["Tools"]["run_skill_script errors for unsupported interpreter"] = function()
         return { bash = {} }
       end,
     }
-    
+
     -- Clear and reload Tools to pick up the mock
     package.loaded["codecompanion._extensions.agentskills.tools"] = nil
     local Tools = require("codecompanion._extensions.agentskills.tools")
     local tool = Tools.run_skill_script()
-    
+
     -- The schema should not include ruby in the enum
     local interpreter_enum = tool.schema["function"].parameters.properties.interpreter.enum
-    
+
     return {
       enum_has_ruby = vim.list_contains(interpreter_enum, "ruby"),
       enum_has_bash = vim.list_contains(interpreter_enum, "bash"),
@@ -484,16 +416,16 @@ end
 T["Tools"]["run_skill_script generates correct prompt for approval"] = function()
   local result = child.lua([[
     local Tools = require("codecompanion._extensions.agentskills.tools")
-    
+
     -- Mock interpreters
     package.loaded["codecompanion._extensions.agentskills.interpreter"] = {
       get_enabled_interpreters = function()
         return { bash = { support_dependencies = false }, python3 = { support_dependencies = true } }
       end,
     }
-    
+
     local tool = Tools.run_skill_script()
-    
+
     -- Simulate the handlers.setup to set escaped_args
     tool.args = {
       skill_name = "test-skill",
@@ -503,9 +435,9 @@ T["Tools"]["run_skill_script generates correct prompt for approval"] = function(
       dependencies = vim.NIL,
     }
     tool.escaped_args = { "--verbose", "output.txt" }
-    
+
     local prompt = tool.output.prompt(tool)
-    
+
     return {
       has_skill_name = prompt:find("test%-skill") ~= nil,
       has_script_path = prompt:find("scripts/build%.sh") ~= nil,
@@ -523,16 +455,16 @@ end
 T["Tools"]["run_skill_script prompt includes dependencies"] = function()
   local result = child.lua([[
     local Tools = require("codecompanion._extensions.agentskills.tools")
-    
+
     -- Mock interpreters
     package.loaded["codecompanion._extensions.agentskills.interpreter"] = {
       get_enabled_interpreters = function()
         return { python3 = { support_dependencies = true } }
       end,
     }
-    
+
     local tool = Tools.run_skill_script()
-    
+
     -- Simulate the handlers.setup to set escaped_args
     tool.args = {
       skill_name = "test-skill",
@@ -542,9 +474,9 @@ T["Tools"]["run_skill_script prompt includes dependencies"] = function()
       dependencies = { "requests", "numpy>=1.20" },
     }
     tool.escaped_args = {}
-    
+
     local prompt = tool.output.prompt(tool)
-    
+
     return {
       has_dependencies = prompt:find("Dependencies") ~= nil,
       has_requests = prompt:find("requests") ~= nil,
@@ -560,7 +492,7 @@ end
 T["Tools"]["run_skill_script schema includes available interpreters"] = function()
   local result = child.lua([[
     local Tools = require("codecompanion._extensions.agentskills.tools")
-    
+
     -- Mock interpreters
     package.loaded["codecompanion._extensions.agentskills.interpreter"] = {
       get_enabled_interpreters = function()
@@ -570,14 +502,14 @@ T["Tools"]["run_skill_script schema includes available interpreters"] = function
         }
       end,
     }
-    
+
     local tool = Tools.run_skill_script()
     local desc = tool.schema["function"].description
     local interpreter_enum = tool.schema["function"].parameters.properties.interpreter.enum
-    
+
     -- Sort for consistent comparison
     table.sort(interpreter_enum)
-    
+
     return {
       has_interpreter_list = desc:find("Supported interpreters") ~= nil,
       has_bash_in_desc = desc:find("bash") ~= nil,
@@ -593,38 +525,25 @@ T["Tools"]["run_skill_script schema includes available interpreters"] = function
   h.eq(2, result.enum_count)
 end
 
-T["Tools"]["run_skill_script schema has correct parameters"] = function()
-  local result = child.lua([[
-    local Tools = require("codecompanion._extensions.agentskills.tools")
-    
+T["Tools"]["run_skill_script schema has correct structure"] = function()
+  child.lua([[
     -- Mock interpreters
     package.loaded["codecompanion._extensions.agentskills.interpreter"] = {
       get_enabled_interpreters = function()
         return { bash = {} }
       end,
     }
-    
-    local tool = Tools.run_skill_script()
-    local params = tool.schema["function"].parameters
-    
-    return {
-      has_skill_name = params.properties.skill_name ~= nil,
-      has_script_path = params.properties.script_path ~= nil,
-      has_interpreter = params.properties.interpreter ~= nil,
-      has_args = params.properties.args ~= nil,
-      has_dependencies = params.properties.dependencies ~= nil,
-      args_is_array = params.properties.args and params.properties.args.type == "array",
-      dependencies_is_array = params.properties.dependencies and params.properties.dependencies.type == "array",
-    }
-  ]])
 
-  h.eq(true, result.has_skill_name)
-  h.eq(true, result.has_script_path)
-  h.eq(true, result.has_interpreter)
-  h.eq(true, result.has_args)
-  h.eq(true, result.has_dependencies)
-  h.eq(true, result.args_is_array)
-  h.eq(true, result.dependencies_is_array)
+    local Tools = require("codecompanion._extensions.agentskills.tools")
+    local tool = Tools.run_skill_script()
+
+    local h = require("tests.helpers")
+    h.assert_tool_schema(tool, {
+      name = "run_skill_script",
+      params = { "skill_name", "script_path", "interpreter", "args", "dependencies" },
+      required = { "skill_name", "script_path", "interpreter" },
+    })
+  ]])
 end
 
 -- ==================== smart escape tests ====================
@@ -632,16 +551,16 @@ end
 T["Tools"]["run_skill_script smart escape - simple args"] = function()
   local result = child.lua([[
     local Tools = require("codecompanion._extensions.agentskills.tools")
-    
+
     -- Mock interpreters
     package.loaded["codecompanion._extensions.agentskills.interpreter"] = {
       get_enabled_interpreters = function()
         return { bash = { support_dependencies = false } }
       end,
     }
-    
+
     local tool = Tools.run_skill_script()
-    
+
     -- Simulate handlers.setup with simple args
     tool.args = {
       skill_name = "test-skill",
@@ -651,10 +570,10 @@ T["Tools"]["run_skill_script smart escape - simple args"] = function()
       dependencies = vim.NIL,
     }
     tool.opts = {}
-    
+
     -- Call handlers.setup
     tool.handlers.setup(tool, {})
-    
+
     return {
       escaped_args = tool.escaped_args,
       count = #tool.escaped_args,
@@ -672,16 +591,16 @@ end
 T["Tools"]["run_skill_script smart escape - special chars"] = function()
   local result = child.lua([[
     local Tools = require("codecompanion._extensions.agentskills.tools")
-    
+
     -- Mock interpreters
     package.loaded["codecompanion._extensions.agentskills.interpreter"] = {
       get_enabled_interpreters = function()
         return { bash = { support_dependencies = false } }
       end,
     }
-    
+
     local tool = Tools.run_skill_script()
-    
+
     -- Simulate handlers.setup with special char args
     tool.args = {
       skill_name = "test-skill",
@@ -691,10 +610,10 @@ T["Tools"]["run_skill_script smart escape - special chars"] = function()
       dependencies = vim.NIL,
     }
     tool.opts = {}
-    
+
     -- Call handlers.setup
     tool.handlers.setup(tool, {})
-    
+
     return {
       escaped_args = tool.escaped_args,
       count = #tool.escaped_args,
@@ -714,14 +633,14 @@ end
 T["Tools"]["run_skill_script scripts_require_approval = false"] = function()
   local result = child.lua([[
     local Tools = require("codecompanion._extensions.agentskills.tools")
-    
+
     -- Mock interpreters
     package.loaded["codecompanion._extensions.agentskills.interpreter"] = {
       get_enabled_interpreters = function()
         return { bash = { support_dependencies = false } }
       end,
     }
-    
+
     -- Mock AS module with skill that has scripts_require_approval = false
     package.loaded["codecompanion._extensions.agentskills"] = {
       get_skill = function(name)
@@ -731,9 +650,9 @@ T["Tools"]["run_skill_script scripts_require_approval = false"] = function()
         }
       end,
     }
-    
+
     local tool = Tools.run_skill_script()
-    
+
     tool.args = {
       skill_name = "test-skill",
       script_path = "scripts/test.sh",
@@ -742,10 +661,10 @@ T["Tools"]["run_skill_script scripts_require_approval = false"] = function()
       dependencies = vim.NIL,
     }
     tool.opts = {}
-    
+
     -- Call handlers.setup
     tool.handlers.setup(tool, {})
-    
+
     return {
       require_approval = tool.opts.require_approval_before,
     }
@@ -757,14 +676,14 @@ end
 T["Tools"]["run_skill_script scripts_require_approval = true (default)"] = function()
   local result = child.lua([[
     local Tools = require("codecompanion._extensions.agentskills.tools")
-    
+
     -- Mock interpreters
     package.loaded["codecompanion._extensions.agentskills.interpreter"] = {
       get_enabled_interpreters = function()
         return { bash = { support_dependencies = false } }
       end,
     }
-    
+
     -- Mock AS module with skill that has scripts_require_approval = true (default)
     package.loaded["codecompanion._extensions.agentskills"] = {
       get_skill = function(name)
@@ -774,9 +693,9 @@ T["Tools"]["run_skill_script scripts_require_approval = true (default)"] = funct
         }
       end,
     }
-    
+
     local tool = Tools.run_skill_script()
-    
+
     tool.args = {
       skill_name = "test-skill",
       script_path = "scripts/test.sh",
@@ -785,10 +704,10 @@ T["Tools"]["run_skill_script scripts_require_approval = true (default)"] = funct
       dependencies = vim.NIL,
     }
     tool.opts = {}
-    
+
     -- Call handlers.setup
     tool.handlers.setup(tool, {})
-    
+
     return {
       require_approval = tool.opts.require_approval_before,
     }
@@ -800,14 +719,14 @@ end
 T["Tools"]["run_skill_script handles vim.NIL args"] = function()
   local result = child.lua([[
     local Tools = require("codecompanion._extensions.agentskills.tools")
-    
+
     -- Mock interpreters
     package.loaded["codecompanion._extensions.agentskills.interpreter"] = {
       get_enabled_interpreters = function()
         return { bash = { support_dependencies = false } }
       end,
     }
-    
+
     -- Mock AS module
     package.loaded["codecompanion._extensions.agentskills"] = {
       get_skill = function(name)
@@ -817,9 +736,9 @@ T["Tools"]["run_skill_script handles vim.NIL args"] = function()
         }
       end,
     }
-    
+
     local tool = Tools.run_skill_script()
-    
+
     -- Test with vim.NIL args
     tool.args = {
       skill_name = "test-skill",
@@ -829,57 +748,10 @@ T["Tools"]["run_skill_script handles vim.NIL args"] = function()
       dependencies = vim.NIL,
     }
     tool.opts = {}
-    
+
     -- Call handlers.setup
     tool.handlers.setup(tool, {})
-    
-    return {
-      escaped_args = tool.escaped_args,
-      is_table = type(tool.escaped_args) == "table",
-      count = #tool.escaped_args,
-    }
-  ]])
 
-  h.eq(true, result.is_table)
-  h.eq(0, result.count)
-end
-
-T["Tools"]["run_skill_script handles nil args"] = function()
-  local result = child.lua([[
-    local Tools = require("codecompanion._extensions.agentskills.tools")
-    
-    -- Mock interpreters
-    package.loaded["codecompanion._extensions.agentskills.interpreter"] = {
-      get_enabled_interpreters = function()
-        return { bash = { support_dependencies = false } }
-      end,
-    }
-    
-    -- Mock AS module
-    package.loaded["codecompanion._extensions.agentskills"] = {
-      get_skill = function(name)
-        return {
-          name = function(self) return name end,
-          opts = { scripts_require_approval = true },
-        }
-      end,
-    }
-    
-    local tool = Tools.run_skill_script()
-    
-    -- Test with nil args
-    tool.args = {
-      skill_name = "test-skill",
-      script_path = "scripts/test.sh",
-      interpreter = "bash",
-      args = nil,
-      dependencies = nil,
-    }
-    tool.opts = {}
-    
-    -- Call handlers.setup
-    tool.handlers.setup(tool, {})
-    
     return {
       escaped_args = tool.escaped_args,
       is_table = type(tool.escaped_args) == "table",

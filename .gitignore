@@ -5,14 +5,8 @@ __pycache__/
 # Dependencies
 deps/
 
-# Test artifacts
-tests/stubs/
-
 # Logs
 *.log
 
 # Lua cache
 *.luac
-
-# Tree-sitter parsers
-deps/parsers/
