@@ -1,47 +1,99 @@
 NVIM := nvim
 
-.PHONY: all test test_file deps clean
+# ============================================================
+# Dependency Definitions
+# ============================================================
+
+# Dependency list
+DEPS := mini.nvim plenary.nvim nvim-treesitter codecompanion.nvim
+
+# URL mapping
+DEP_URL_mini.nvim := https://github.com/nvim-mini/mini.nvim
+DEP_URL_plenary.nvim := https://github.com/nvim-lua/plenary.nvim
+DEP_URL_nvim-treesitter := https://github.com/nvim-treesitter/nvim-treesitter
+DEP_URL_codecompanion.nvim := https://github.com/olimorris/codecompanion.nvim
+
+# Pinned commit mapping (can be overridden by environment variables)
+DEP_COMMIT_mini.nvim ?= 418ef4930ddabe80f449c6f1323f8b6abb172d1c
+DEP_COMMIT_plenary.nvim ?= 74b06c6c75e4eeb3108ec01852001636d85a932b
+DEP_COMMIT_nvim-treesitter ?= 4916d6592ede8c07973490d9322f187e07dfefac
+DEP_COMMIT_codecompanion.nvim ?= 0d618f9de6a807b2abe2f69cb4e02fd1623e6224
+
+# ============================================================
+# Dependency Mode
+# ============================================================
+DEPS_MODE ?= pinned
+
+# Compute combined hash of all commits for marker filename
+# When any commit changes, marker filename changes, triggering rebuild
+COMMIT_HASH := $(shell echo "$(foreach dep,$(DEPS),$(DEP_COMMIT_$(dep)))" | md5sum | cut -c1-16)
+COMMIT_MARKER := deps/.commit-$(DEPS_MODE)-$(COMMIT_HASH)
+
+.ONESHELL:
+.PHONY: all test test_file deps deps-pinned deps-nightly clean-deps clean
 
 all: test
 
 # Run all tests
-test: deps
+test: $(COMMIT_MARKER)
 	@echo "Running tests..."
 	$(NVIM) --headless --noplugin -u ./tests/minimal_init.lua -c "lua MiniTest.run()" -c "qa!"
 
 # Run a specific test file
-test_file: deps
+test_file: $(COMMIT_MARKER)
 ifndef FILE
 	$(error FILE is required. Usage: make test_file FILE=tests/units/test_skill.lua)
 endif
 	@echo "Testing file: $(FILE)"
 	$(NVIM) --headless --noplugin -u ./tests/minimal_init.lua -c "lua MiniTest.run_file('$(FILE)')" -c "qa!"
 
-# Install dependencies
-deps: deps/mini.nvim deps/plenary.nvim deps/nvim-treesitter deps/codecompanion.nvim
+# ============================================================
+# Dependency Installation
+# ============================================================
 
-deps/mini.nvim:
-	@mkdir -p deps
-	git clone --filter=blob:none https://github.com/echasnovski/mini.nvim $@
-	cd $@ && git checkout 402ee6c6ec8ea44b22330446c8fb4e615fd3953e
+# Generic install template, called via $(call install_dep,<dep>)
+define install_dep
+	if [ ! -d "deps/$(1)" ]; then \
+		git clone --filter=blob:none $(DEP_URL_$(1)) deps/$(1); \
+	fi; \
+	(cd deps/$(1) && git fetch origin); \
+	if [ "$(DEPS_MODE)" = "nightly" ]; then \
+		(cd deps/$(1) && git checkout origin/HEAD); \
+	else \
+		(cd deps/$(1) && git checkout $(DEP_COMMIT_$(1))); \
+	fi;
+endef
 
-deps/plenary.nvim:
-	@mkdir -p deps
-	git clone --filter=blob:none https://github.com/nvim-lua/plenary.nvim $@
-	cd $@ && git checkout b9fd5226c2f76c951fc8ed5923d85e4de065e509
+deps: $(COMMIT_MARKER)
 
-deps/nvim-treesitter:
-	@mkdir -p deps
-	git clone --filter=blob:none https://github.com/nvim-treesitter/nvim-treesitter $@
-	cd $@ && git checkout 4916d6592ede8c07973490d9322f187e07dfefac
+deps-pinned:
+	$(MAKE) deps DEPS_MODE=pinned
 
-deps/codecompanion.nvim:
+deps-nightly:
+	$(MAKE) deps DEPS_MODE=nightly
+
+# Nightly mode uses .PHONY to always re-check for updates
+# Pinned mode triggers rebuild via COMMIT_HASH change, no .PHONY needed
+ifneq ($(DEPS_MODE),pinned)
+.PHONY: $(COMMIT_MARKER)
+endif
+
+$(COMMIT_MARKER):
+	@echo "Installing dependencies in $(DEPS_MODE) mode..."
+	@rm -f deps/.commit-*
 	@mkdir -p deps
-	git clone --filter=blob:none https://github.com/olimorris/codecompanion.nvim $@
-	cd $@ && git checkout 4d8449918e136446c2dabe255241fc6b902e22f1
+	@set -e; $(foreach dep,$(DEPS),$(call install_dep,$(dep)))
+	@touch $@
+	@echo "✓ Dependencies installed ($(DEPS_MODE) mode):"
+	@for dep in $(DEPS); do \
+		commit=$$(cd deps/$$dep && git rev-parse --short HEAD); \
+		echo "  $$dep: $$commit"; \
+	done
 
 format:
 	stylua tests/ lua/
 
-clean:
+clean-deps:
 	rm -rf deps/
+
+clean: clean-deps

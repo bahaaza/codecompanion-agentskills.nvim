@@ -13,9 +13,13 @@ jobs:
       fail-fast: false
       matrix:
         nvim-version: [stable, nightly]
+        deps-mode: [pinned, nightly]
 
     steps:
       - uses: actions/checkout@v6
+
+      - name: Set DEPS_MODE
+        run: echo "DEPS_MODE=${{ matrix.deps-mode }}" >> $GITHUB_ENV
 
       - name: Install Neovim
         uses: rhysd/action-setup-vim@v1
@@ -28,21 +32,21 @@ jobs:
         with:
           install-lib: false
 
-      - name: Cache Tree-sitter parsers
-        uses: actions/cache@v5
-        with:
-          path: deps/parsers
-          key: parsers-${{ hashFiles('tests/minimal_init.lua') }}
-          restore-keys: |
-            parsers-
-
-      - name: Cache dependencies
+      - name: Cache dependencies (pinned)
+        if: matrix.deps-mode == 'pinned'
         uses: actions/cache@v5
         with:
           path: deps
-          key: deps-${{ hashFiles('Makefile') }}
+          key: deps-pinned-${{ hashFiles('Makefile') }}
+
+      - name: Cache dependencies (nightly)
+        if: matrix.deps-mode == 'nightly'
+        uses: actions/cache@v5
+        with:
+          path: deps
+          key: deps-nightly-${{ github.run_id }}
           restore-keys: |
-            deps-
+            deps-nightly-
 
       - name: Install dependencies
         run: make deps
