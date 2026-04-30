@@ -65,9 +65,23 @@ function Tools.activate_skill()
         local skill = AS.get_skill(args.skill_name)
         if not skill then
           return { status = "error", data = "Skill not found: " .. args.skill_name }
-        else
-          return { status = "success", data = skill }
         end
+
+        local skill_id =
+          string.format("<editor_context>skill:%s</editor_context>", args.skill_name)
+        local context_items = (self and self.chat and self.chat.context_items) or {}
+        for _, ctx in ipairs(context_items) do
+          if ctx.id == skill_id then
+            return {
+              status = "error",
+              data = "Skill already in context: "
+                .. args.skill_name
+                .. ". Do not activate skills that are already in context.",
+            }
+          end
+        end
+
+        return { status = "success", data = skill }
       end,
     },
     output = {

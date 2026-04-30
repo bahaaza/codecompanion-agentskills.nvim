@@ -388,7 +388,7 @@ T["Editor Context"]["#{skill:test-skill} injects SKILL.md content"] = function()
     },
   })
 
-  -- Add a message with #{skill/test-skill} and parse editor context
+-- Add a message with #{skill:test-skill} and parse editor context
   child.lua([[
     local chat = _G._test_chat
     -- Add user message with editor context

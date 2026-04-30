@@ -535,26 +535,24 @@ T["editor_context"]["callback returns SKILL.md content"] = function()
 end
 
 T["editor_context"]["callback returns error for non-existent skill"] = function()
-  setup_fresh({ paths = {}, disable_demo_skill = true })
+  local temp_dir = h.temp_dir()
+  local skill_md = h.make_skill_md("existing-skill", "Existing skill", "# Existing")
+  h.create_test_skill(temp_dir, "existing-skill", skill_md)
+
+  setup_fresh({ paths = { temp_dir }, disable_demo_skill = true })
 
   child.lua([[
     local config = require("codecompanion.config")
     local editor_context = config.interactions.shared.editor_context
-    -- Manually create a fake editor_context entry to test callback
-    local AS = require("codecompanion._extensions.agentskills")
-local ctx = { config = { name = "skill:non-existent" } }
-    -- Simulate the callback logic
-local name = ctx.config.name:match("^skill:(.+)$")
-    local s = AS.get_skill(name)
-    if not s then
-      _G.test_result = "Skill not found: " .. name
-    else
-      _G.test_result = "unexpected success"
-    end
+    local callback = editor_context["skill:existing-skill"].callback
+    local ctx = { config = { name = "skill:non-existent" } }
+    _G.test_result = callback(ctx)
   ]])
   local result = child.lua_get("_G.test_result")
 
   h.eq("Skill not found: non-existent", result)
+
+  h.cleanup_dir(temp_dir)
 end
 
 T["editor_context"]["register_editor_contexts clears old registrations"] = function()

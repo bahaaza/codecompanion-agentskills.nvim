@@ -24,10 +24,14 @@ local function register_editor_contexts()
   local editor_context = require("codecompanion.config").interactions.shared.editor_context
 
   -- Clear old skill-* registrations
+  local keys_to_remove = {}
   for key in pairs(editor_context) do
     if key:match("^skill:") then
-      editor_context[key] = nil
+      keys_to_remove[#keys_to_remove + 1] = key
     end
+  end
+  for _, key in ipairs(keys_to_remove) do
+    editor_context[key] = nil
   end
 
   -- Register current skills

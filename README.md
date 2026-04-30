@@ -62,4 +62,4 @@ Using [lazy.nvim](https://github.com/folke/lazy.nvim):
 
 * Put skills directories in one of the configured paths.
 * Use `@{agent_skills}` tool group in your Chat. The LLM should activate skills when your task matches the skill's description. You can also explicitly ask the LLM to use a specific skill by name.
-* You can also use the editor context syntax `#{skill-<skill-name>}` to inject a skill explicitly into your chat buffer. *`@{agent_skills}` tool group is still required to ensure it functions properly*.
+* You can also use the editor context syntax `#{skill:<skill-name>}` to inject a skill explicitly into your chat buffer. *`@{agent_skills}` tool group is still required to ensure it functions properly*.

@@ -156,6 +156,184 @@ T["Tools"]["activate_skill schema has correct structure"] = function()
   ]])
 end
 
+T["Tools"]["activate_skill returns error when skill already in context"] = function()
+  local result = child.lua([[
+    -- Create a mock skill
+    local mock_skill = {
+      name = function(self) return "test-skill" end,
+      description = function(self) return "A test skill" end,
+      read_content = function(self) return "# Test Skill Content" end,
+    }
+
+    -- Mock the AS module
+    package.loaded["codecompanion._extensions.agentskills"] = {
+      get_skill = function(name)
+        if name == "test-skill" then return mock_skill end
+        return nil
+      end,
+      get_skills = function()
+        return { ["test-skill"] = mock_skill }
+      end,
+    }
+
+    local Tools = require("codecompanion._extensions.agentskills.tools")
+    local tool = Tools.activate_skill()
+
+    -- Mock chat with context_items containing the skill
+    local mock_chat = {
+      context_items = {
+        { id = "<editor_context>skill:test-skill</editor_context>" },
+      },
+    }
+
+    -- Call the cmds function with mock self containing chat
+    local cmd_func = tool.cmds[1]
+    local output = cmd_func({ chat = mock_chat }, { skill_name = "test-skill" })
+
+    return {
+      status = output.status,
+      data = output.data,
+    }
+  ]])
+
+  h.eq("error", result.status)
+  h.expect_contains("Skill already in context", result.data)
+  h.expect_contains("test-skill", result.data)
+  h.expect_contains("Do not activate", result.data)
+end
+
+T["Tools"]["activate_skill succeeds when skill not in context"] = function()
+  local result = child.lua([[
+    -- Create mock skills
+    local mock_skill = {
+      name = function(self) return "test-skill" end,
+      description = function(self) return "A test skill" end,
+      read_content = function(self) return "# Test Skill Content" end,
+    }
+    local other_skill = {
+      name = function(self) return "other-skill" end,
+      description = function(self) return "Another skill" end,
+    }
+
+    -- Mock the AS module
+    package.loaded["codecompanion._extensions.agentskills"] = {
+      get_skill = function(name)
+        if name == "test-skill" then return mock_skill end
+        return nil
+      end,
+      get_skills = function()
+        return { ["test-skill"] = mock_skill, ["other-skill"] = other_skill }
+      end,
+    }
+
+    local Tools = require("codecompanion._extensions.agentskills.tools")
+    local tool = Tools.activate_skill()
+
+    -- Mock chat with context_items containing a DIFFERENT skill
+    local mock_chat = {
+      context_items = {
+        { id = "<editor_context>skill:other-skill</editor_context>" },
+      },
+    }
+
+    -- Call the cmds function
+    local cmd_func = tool.cmds[1]
+    local output = cmd_func({ chat = mock_chat }, { skill_name = "test-skill" })
+
+    return {
+      status = output.status,
+      skill_name = output.data and output.data:name(),
+    }
+  ]])
+
+  h.eq("success", result.status)
+  h.eq("test-skill", result.skill_name)
+end
+
+T["Tools"]["activate_skill succeeds when context_items is empty"] = function()
+  local result = child.lua([[
+    -- Create a mock skill
+    local mock_skill = {
+      name = function(self) return "test-skill" end,
+      description = function(self) return "A test skill" end,
+      read_content = function(self) return "# Test Skill Content" end,
+    }
+
+    -- Mock the AS module
+    package.loaded["codecompanion._extensions.agentskills"] = {
+      get_skill = function(name)
+        if name == "test-skill" then return mock_skill end
+        return nil
+      end,
+      get_skills = function()
+        return { ["test-skill"] = mock_skill }
+      end,
+    }
+
+    local Tools = require("codecompanion._extensions.agentskills.tools")
+    local tool = Tools.activate_skill()
+
+    -- Mock chat with empty context_items
+    local mock_chat = {
+      context_items = {},
+    }
+
+    -- Call the cmds function
+    local cmd_func = tool.cmds[1]
+    local output = cmd_func({ chat = mock_chat }, { skill_name = "test-skill" })
+
+    return {
+      status = output.status,
+      skill_name = output.data and output.data:name(),
+    }
+  ]])
+
+  h.eq("success", result.status)
+  h.eq("test-skill", result.skill_name)
+end
+
+T["Tools"]["activate_skill succeeds when context_items is nil"] = function()
+  local result = child.lua([[
+    -- Create a mock skill
+    local mock_skill = {
+      name = function(self) return "test-skill" end,
+      description = function(self) return "A test skill" end,
+      read_content = function(self) return "# Test Skill Content" end,
+    }
+
+    -- Mock the AS module
+    package.loaded["codecompanion._extensions.agentskills"] = {
+      get_skill = function(name)
+        if name == "test-skill" then return mock_skill end
+        return nil
+      end,
+      get_skills = function()
+        return { ["test-skill"] = mock_skill }
+      end,
+    }
+
+    local Tools = require("codecompanion._extensions.agentskills.tools")
+    local tool = Tools.activate_skill()
+
+    -- Mock chat with nil context_items
+    local mock_chat = {
+      context_items = nil,
+    }
+
+    -- Call the cmds function
+    local cmd_func = tool.cmds[1]
+    local output = cmd_func({ chat = mock_chat }, { skill_name = "test-skill" })
+
+    return {
+      status = output.status,
+      skill_name = output.data and output.data:name(),
+    }
+  ]])
+
+  h.eq("success", result.status)
+  h.eq("test-skill", result.skill_name)
+end
+
 -- ==================== load_skill_file tests ====================
 
 T["Tools"]["load_skill_file errors for non-existent skill"] = function()
