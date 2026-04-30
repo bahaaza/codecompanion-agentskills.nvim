@@ -431,4 +431,222 @@ T["Extension.setup"]["configures script_interpreters"] = function()
   -- python3 may not be available if python3 is not installed
 end
 
+-- Editor Context Tests
+T["editor_context"] = new_set()
+
+T["editor_context"]["setup registers skills as editor_context"] = function()
+  local temp_dir = h.temp_dir()
+  local skill_md = h.make_skill_md("test-skill", "Test skill for editor_context", "# Test Skill Content")
+  h.create_test_skill(temp_dir, "test-skill", skill_md)
+
+  setup_fresh({ paths = { temp_dir }, disable_demo_skill = true })
+
+  child.lua([[
+    local config = require("codecompanion.config")
+    local editor_context = config.interactions.shared.editor_context
+    _G.test_result = {
+      has_test_skill = editor_context["skill:test-skill"] ~= nil,
+    }
+  ]])
+  local result = child.lua_get("_G.test_result")
+
+  h.eq(true, result.has_test_skill)
+
+  h.cleanup_dir(temp_dir)
+end
+
+T["editor_context"]["setup registers multiple skills"] = function()
+  local temp_dir = h.temp_dir()
+  local skill1_md = h.make_skill_md("skill-one", "First skill", "# Skill One")
+  h.create_test_skill(temp_dir, "skill-one", skill1_md)
+  local skill2_md = h.make_skill_md("skill-two", "Second skill", "# Skill Two")
+  h.create_test_skill(temp_dir, "skill-two", skill2_md)
+
+  setup_fresh({ paths = { temp_dir }, disable_demo_skill = true })
+
+  child.lua([[
+    local config = require("codecompanion.config")
+    local editor_context = config.interactions.shared.editor_context
+    _G.test_result = {
+      has_skill_one = editor_context["skill:skill-one"] ~= nil,
+      has_skill_two = editor_context["skill:skill-two"] ~= nil,
+    }
+  ]])
+  local result = child.lua_get("_G.test_result")
+
+  h.eq(true, result.has_skill_one)
+  h.eq(true, result.has_skill_two)
+
+  h.cleanup_dir(temp_dir)
+end
+
+T["editor_context"]["demo-skill is registered by default"] = function()
+  setup_fresh({ paths = {}, disable_demo_skill = false })
+
+  child.lua([[
+    local config = require("codecompanion.config")
+    local editor_context = config.interactions.shared.editor_context
+    _G.test_result = editor_context["skill:demo-skill"] ~= nil
+  ]])
+  local result = child.lua_get("_G.test_result")
+
+  h.eq(true, result)
+end
+
+T["editor_context"]["demo-skill is not registered when disabled"] = function()
+  setup_fresh({ paths = {}, disable_demo_skill = true })
+
+  child.lua([[
+    local config = require("codecompanion.config")
+    local editor_context = config.interactions.shared.editor_context
+    _G.test_result = editor_context["skill:demo-skill"] ~= nil
+  ]])
+  local result = child.lua_get("_G.test_result")
+
+  h.eq(false, result)
+end
+
+T["editor_context"]["callback returns SKILL.md content"] = function()
+  local temp_dir = h.temp_dir()
+  local skill_md = h.make_skill_md("callback-test", "Callback test skill", "# Callback Test Content\n\nThis is test content.")
+  h.create_test_skill(temp_dir, "callback-test", skill_md)
+
+  setup_fresh({ paths = { temp_dir }, disable_demo_skill = true })
+
+  child.lua([[
+    local config = require("codecompanion.config")
+    local editor_context = config.interactions.shared.editor_context
+    local ctx_config = editor_context["skill:callback-test"]
+    if ctx_config and ctx_config.callback then
+    local ctx = { config = { name = "skill:callback-test" } }
+      _G.test_result = ctx_config.callback(ctx)
+    else
+      _G.test_result = nil
+    end
+  ]])
+  local result = child.lua_get("_G.test_result")
+
+  h.eq(true, result ~= nil)
+  h.eq(true, result:find('<agent%-skill name="callback%-test">') ~= nil, "Should have opening tag")
+  h.eq(true, result:find("Callback Test Content") ~= nil, "Should contain skill content")
+  h.eq(true, result:find('</agent%-skill>') ~= nil, "Should have closing tag")
+
+  h.cleanup_dir(temp_dir)
+end
+
+T["editor_context"]["callback returns error for non-existent skill"] = function()
+  local temp_dir = h.temp_dir()
+  local skill_md = h.make_skill_md("existing-skill", "Existing skill", "# Existing")
+  h.create_test_skill(temp_dir, "existing-skill", skill_md)
+
+  setup_fresh({ paths = { temp_dir }, disable_demo_skill = true })
+
+  child.lua([[
+    local config = require("codecompanion.config")
+    local editor_context = config.interactions.shared.editor_context
+    local callback = editor_context["skill:existing-skill"].callback
+    local ctx = { config = { name = "skill:non-existent" } }
+    _G.test_result = callback(ctx)
+  ]])
+  local result = child.lua_get("_G.test_result")
+
+  h.eq("Skill not found: non-existent", result)
+
+  h.cleanup_dir(temp_dir)
+end
+
+T["editor_context"]["register_editor_contexts clears old registrations"] = function()
+  local temp_dir1 = h.temp_dir()
+  local skill_md1 = h.make_skill_md("old-skill", "Old skill", "# Old")
+  h.create_test_skill(temp_dir1, "old-skill", skill_md1)
+
+  setup_fresh({ paths = { temp_dir1 }, disable_demo_skill = true })
+
+  -- Verify old-skill is registered
+  child.lua([[
+    local config = require("codecompanion.config")
+    local editor_context = config.interactions.shared.editor_context
+    _G.test_result_before = editor_context["skill:old-skill"] ~= nil
+  ]])
+  local result_before = child.lua_get("_G.test_result_before")
+  h.eq(true, result_before)
+
+  -- Now discover new skills (without old-skill)
+  local temp_dir2 = h.temp_dir()
+  local skill_md2 = h.make_skill_md("new-skill", "New skill", "# New")
+  h.create_test_skill(temp_dir2, "new-skill", skill_md2)
+
+  child.lua([[
+    local AS = require("codecompanion._extensions.agentskills")
+    local opts = {
+      paths = { ... },
+      disable_demo_skill = true,
+    }
+    AS.setup(opts)
+  ]], { temp_dir2 })
+
+  -- Verify old-skill is removed and new-skill is registered
+  child.lua([[
+    local config = require("codecompanion.config")
+    local editor_context = config.interactions.shared.editor_context
+    _G.test_result_after = {
+      has_old = editor_context["skill:old-skill"] ~= nil,
+      has_new = editor_context["skill:new-skill"] ~= nil,
+    }
+  ]])
+  local result_after = child.lua_get("_G.test_result_after")
+
+  h.eq(false, result_after.has_old)
+  h.eq(true, result_after.has_new)
+
+  h.cleanup_dir(temp_dir1)
+  h.cleanup_dir(temp_dir2)
+end
+
+T["editor_context"]["description is set correctly"] = function()
+  local temp_dir = h.temp_dir()
+  local skill_md = h.make_skill_md("desc-test", "Description test skill", "# Desc Test")
+  h.create_test_skill(temp_dir, "desc-test", skill_md)
+
+  setup_fresh({ paths = { temp_dir }, disable_demo_skill = true })
+
+  child.lua([[
+    local config = require("codecompanion.config")
+    local editor_context = config.interactions.shared.editor_context
+    local AS = require("codecompanion._extensions.agentskills")
+    local skill = AS.get_skill("desc-test")
+    local ctx_config = editor_context["skill:desc-test"]
+    _G.test_result = {
+      has_description = ctx_config and ctx_config.description ~= nil,
+      description_matches = ctx_config and skill and ctx_config.description == skill:description(),
+    }
+  ]])
+  local result = child.lua_get("_G.test_result")
+
+  h.eq(true, result.has_description)
+  h.eq(true, result.description_matches)
+
+  h.cleanup_dir(temp_dir)
+end
+
+T["editor_context"]["opts.contains_code is false"] = function()
+  local temp_dir = h.temp_dir()
+  local skill_md = h.make_skill_md("opts-test", "Opts test skill", "# Opts Test")
+  h.create_test_skill(temp_dir, "opts-test", skill_md)
+
+  setup_fresh({ paths = { temp_dir }, disable_demo_skill = true })
+
+  child.lua([[
+    local config = require("codecompanion.config")
+    local editor_context = config.interactions.shared.editor_context
+    local ctx_config = editor_context["skill:opts-test"]
+    _G.test_result = ctx_config and ctx_config.opts and ctx_config.opts.contains_code
+  ]])
+  local result = child.lua_get("_G.test_result")
+
+  h.eq(false, result)
+
+  h.cleanup_dir(temp_dir)
+end
+
 return T

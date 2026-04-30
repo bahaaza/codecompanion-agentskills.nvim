@@ -14,10 +14,10 @@ DEP_URL_nvim-treesitter := https://github.com/nvim-treesitter/nvim-treesitter
 DEP_URL_codecompanion.nvim := https://github.com/olimorris/codecompanion.nvim
 
 # Pinned commit mapping (can be overridden by environment variables)
-DEP_COMMIT_mini.nvim ?= 418ef4930ddabe80f449c6f1323f8b6abb172d1c
-DEP_COMMIT_plenary.nvim ?= 74b06c6c75e4eeb3108ec01852001636d85a932b
+DEP_COMMIT_mini.nvim ?= a995fe9cd4193fb492b5df69175a351a74b3d36b
+DEP_COMMIT_plenary.nvim ?= 50012918b2fc8357b87cff2a7f7f0446e47da174
 DEP_COMMIT_nvim-treesitter ?= 4916d6592ede8c07973490d9322f187e07dfefac
-DEP_COMMIT_codecompanion.nvim ?= 0d618f9de6a807b2abe2f69cb4e02fd1623e6224
+DEP_COMMIT_codecompanion.nvim ?= f70759ee8b63b46ea0cf158dc22daa2a5e9c6319
 
 # ============================================================
 # Dependency Mode

@@ -16,7 +16,7 @@ local function make_system_prompt()
 You are equipped with a **Progressive Disclosure Agent Skills System**. This allows you to dynamically load specialized domain knowledge and tools to solve complex user tasks.
 
 ## 🚀 Workflow
-1. **Identify**: Review the "Available Skills" list below. If a skill matches the user's intent, choose it.
+1. **Identify**: Review the "Available Skills" list below. If a skill matches the user's intent, check whether its content is already present in the conversation (look for `<agent-skill>` tags) — if so, skip activation and proceed to execution. Otherwise, choose it for activation.
 2. **Activate**: Call `activate_skill` with the skill name. This injects the skill's specific instructions (SOPs) into your context.
 3. **Execute**: Strictly follow the new instructions provided by the skill.
 4. **Resource Access**: If the skill instructions reference files (docs, templates) or scripts:
@@ -29,6 +29,7 @@ You are equipped with a **Progressive Disclosure Agent Skills System**. This all
    - ✅ **ONLY** use `load_skill_file` and `run_skill_script`.
 2. **CONTEXT SWITCHING**: When a skill is activated, its instructions take precedence for that specific sub-task.
 3. **TRANSPARENCY**: Inform the user when you are activating a skill (e.g., "I will use the `git-expert` skill to handle this...").
+4. **AVOID REDUNDANT ACTIVATION**: If a skill's content has already been injected into the conversation (indicated by `<agent-skill name="xxx">` tags), do NOT call `activate_skill` for that same skill. The skill instructions are already in your context.
 
 ## 📦 Available Skills
 %s]],
@@ -64,9 +65,23 @@ function Tools.activate_skill()
         local skill = AS.get_skill(args.skill_name)
         if not skill then
           return { status = "error", data = "Skill not found: " .. args.skill_name }
-        else
-          return { status = "success", data = skill }
         end
+
+        local skill_id =
+          string.format("<editor_context>skill:%s</editor_context>", args.skill_name)
+        local context_items = (self and self.chat and self.chat.context_items) or {}
+        for _, ctx in ipairs(context_items) do
+          if ctx.id == skill_id then
+            return {
+              status = "error",
+              data = "Skill already in context: "
+                .. args.skill_name
+                .. ". Do not activate skills that are already in context.",
+            }
+          end
+        end
+
+        return { status = "success", data = skill }
       end,
     },
     output = {

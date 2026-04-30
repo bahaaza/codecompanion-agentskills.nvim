@@ -19,6 +19,44 @@ local current_opts = {
 ---@type table<string, CodeCompanion.AgentSkills.Skill>?
 local skills
 
+---Register all discovered skills as editor context items
+local function register_editor_contexts()
+  local editor_context = require("codecompanion.config").interactions.shared.editor_context
+
+  -- Clear old skill-* registrations
+  local keys_to_remove = {}
+  for key in pairs(editor_context) do
+    if key:match("^skill:") then
+      keys_to_remove[#keys_to_remove + 1] = key
+    end
+  end
+  for _, key in ipairs(keys_to_remove) do
+    editor_context[key] = nil
+  end
+
+  -- Register current skills
+  for skill_name, skill in pairs(skills) do
+    editor_context["skill:" .. skill_name] = {
+      callback = function(ctx)
+        local name = ctx.config.name:match("^skill:(.+)$")
+        local s = Extension.get_skill(name)
+        if not s then
+          return "Skill not found: " .. name
+        end
+        local ok, content = pcall(s.read_content, s)
+        if not ok then
+          return "Failed to read skill content: " .. content
+        end
+        return string.format('<agent-skill name="%s">\n%s\n</agent-skill>', name, content)
+      end,
+      description = skill:description(),
+      opts = {
+        contains_code = false,
+      },
+    }
+  end
+end
+
 local function discover_skills()
   skills = {}
   for _, path_spec in ipairs(current_opts.paths) do
@@ -113,6 +151,8 @@ local function discover_skills()
       log:warn("Failed to load built-in demo-skill from %s: %s", demo_skill_path, demo_skill)
     end
   end
+
+  register_editor_contexts()
 end
 
 ---@param opts CodeCompanion.AgentSkills.Opts

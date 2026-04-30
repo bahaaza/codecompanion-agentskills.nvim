@@ -373,4 +373,168 @@ T["Chat Integration"]["multiple tool calls - all outputs in chat messages"] = fu
   h.expect_contains("Skill B Content", all_content)
 end
 
+-- ==================== editor_context tests ====================
+
+T["Editor Context"] = new_set()
+
+T["Editor Context"]["#{skill:test-skill} injects SKILL.md content"] = function()
+  -- Setup Chat with agentskills and a test skill
+  h.setup_chat_with_agentskills(child, {
+    skills = {
+      ["test-skill"] = {
+        description = "A test skill for editor_context",
+        content = "# Test Skill Content\n\nThis is the skill body for editor_context test.",
+      },
+    },
+  })
+
+-- Add a message with #{skill:test-skill} and parse editor context
+  child.lua([[
+    local chat = _G._test_chat
+    -- Add user message with editor context
+    table.insert(chat.messages, { role = "user", content = "#{skill:test-skill} Please help me with this skill" })
+    local message = chat.messages[#chat.messages]
+    -- Parse editor context
+    chat.editor_context:parse(chat, message)
+  ]])
+
+  -- Verify SKILL.md content was added to messages
+  local result = child.lua([[
+    local chat = _G._test_chat
+    -- Find the message with skill content (added by editor_context)
+    local skill_msg = nil
+    for _, msg in ipairs(chat.messages) do
+      if msg._meta and msg._meta.source == "editor_context" and msg._meta.tag == "skill:test-skill" then
+        skill_msg = msg
+        break
+      end
+    end
+    return {
+      found = skill_msg ~= nil,
+      content = skill_msg and skill_msg.content or "",
+      visible = skill_msg and skill_msg.opts and skill_msg.opts.visible,
+    }
+  ]])
+
+  h.is_true(result.found, "Skill content message should be added")
+  h.expect_contains('<agent-skill name="test-skill">', result.content)
+  h.expect_contains("Test Skill Content", result.content)
+  h.expect_contains("skill body for editor_context test", result.content)
+  h.expect_contains('</agent-skill>', result.content)
+  h.eq(false, result.visible, "Skill content message should be hidden")
+end
+
+T["Editor Context"]["#{skill:nonexistent} returns error message"] = function()
+  -- Setup Chat with agentskills but no skills
+  h.setup_chat_with_agentskills(child, {
+    skills = {}, -- No skills available
+  })
+
+  -- Manually register a skill editor_context that will fail
+  child.lua([[
+    local config = require("codecompanion.config")
+    config.interactions.shared.editor_context["skill:nonexistent"] = {
+      callback = function(ctx)
+        local name = ctx.config.name:match("^skill:(.+)$")
+        local Extension = require("codecompanion._extensions.agentskills")
+        local s = Extension.get_skill(name)
+        if not s then
+          return "Skill not found: " .. name
+        end
+        return s:read_content()
+      end,
+      description = "Non-existent skill",
+      opts = { contains_code = false },
+    }
+
+    local chat = _G._test_chat
+    -- Recreate editor_context with the new registration
+    local EditorContext = require("codecompanion.interactions.shared.editor_context")
+    chat.editor_context = EditorContext.new("chat")
+
+    -- Add user message with editor context
+    table.insert(chat.messages, { role = "user", content = "#{skill:nonexistent} Please help" })
+    local message = chat.messages[#chat.messages]
+    -- Parse editor context
+    chat.editor_context:parse(chat, message)
+  ]])
+
+  -- Verify error message was added
+  local result = child.lua([[
+    local chat = _G._test_chat
+    -- Find the message with error content
+    local error_msg = nil
+    for _, msg in ipairs(chat.messages) do
+      if msg._meta and msg._meta.source == "editor_context" and msg._meta.tag == "skill:nonexistent" then
+        error_msg = msg
+        break
+      end
+    end
+    return {
+      found = error_msg ~= nil,
+      content = error_msg and error_msg.content or "",
+    }
+  ]])
+
+  h.is_true(result.found, "Error message should be added")
+  h.expect_contains("Skill not found", result.content)
+  h.expect_contains("nonexistent", result.content)
+end
+
+T["Editor Context"]["Extension.discover() updates editor_context registrations"] = function()
+  -- Create two temp directories with different skills
+  local temp_dir_a = h.temp_dir()
+  local temp_dir_b = h.temp_dir()
+
+  -- Create skill A
+  h.create_test_skill(temp_dir_a, "skill-a", h.make_skill_md("skill-a", "Skill A", "# Skill A Content"))
+
+  -- Create skill B
+  h.create_test_skill(temp_dir_b, "skill-b", h.make_skill_md("skill-b", "Skill B", "# Skill B Content"))
+
+  -- Setup with skill A
+  child.lua([[
+    local temp_dir_a = ...
+    local config = require("tests.config")
+    config.extensions = config.extensions or {}
+    config.extensions.agentskills = {
+      opts = {
+        paths = { temp_dir_a },
+        disable_demo_skill = true,
+      },
+    }
+    require("codecompanion").setup(config)
+
+    local config_after = require("codecompanion.config")
+    _G.editor_context_a = config_after.interactions.shared.editor_context["skill:skill-a"] ~= nil
+    _G.editor_context_b_before = config_after.interactions.shared.editor_context["skill:skill-b"] ~= nil
+  ]], { temp_dir_a })
+
+  -- Verify skill A is registered
+  h.is_true(child.lua_get([[_G.editor_context_a]]), "skill-a should be registered initially")
+  h.is_false(child.lua_get([[_G.editor_context_b_before]]), "skill-b should not be registered initially")
+
+  -- Re-setup with skill B's path (this calls discover_skills internally)
+  child.lua([[
+    local temp_dir_b = ...
+    local AS = require("codecompanion._extensions.agentskills")
+    AS.setup({
+      paths = { temp_dir_b },
+      disable_demo_skill = true,
+    })
+
+    local config_after = require("codecompanion.config")
+    _G.editor_context_a_after = config_after.interactions.shared.editor_context["skill:skill-a"] ~= nil
+    _G.editor_context_b_after = config_after.interactions.shared.editor_context["skill:skill-b"] ~= nil
+  ]], { temp_dir_b })
+
+  -- Verify skill A is removed and skill B is added
+  h.is_false(child.lua_get([[_G.editor_context_a_after]]), "skill-a should be removed after discover")
+  h.is_true(child.lua_get([[_G.editor_context_b_after]]), "skill-b should be registered after discover")
+
+  -- Cleanup
+  h.cleanup_dir(temp_dir_a)
+  h.cleanup_dir(temp_dir_b)
+end
+
 return T
