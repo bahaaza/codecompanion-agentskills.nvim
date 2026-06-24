@@ -1,6 +1,14 @@
 local log = require("codecompanion.utils.log")
 local yaml = require("codecompanion._extensions.agentskills.3rd.yaml")
 
+---@class CodeCompanion.AgentSkills.SkillOpts
+---@field scripts_require_approval? boolean Whether to require user approval before running scripts (default: true)
+
+---@type CodeCompanion.AgentSkills.SkillOpts
+local DEFAULT_SKILL_OPTS = {
+  scripts_require_approval = true,
+}
+
 local MD_YAML_FRONTMATTER_QUERY =
   vim.treesitter.query.parse("markdown", "(document (minus_metadata) @yaml_frontmatter)")
 
@@ -29,6 +37,7 @@ end
 ---@class CodeCompanion.AgentSkills.Skill
 ---@field path string
 ---@field meta CodeCompanion.AgentSkills.SkillMeta
+---@field opts CodeCompanion.AgentSkills.SkillOpts Per-skill options
 
 ---@class CodeCompanion.AgentSkills.SkillMeta
 ---@field name string Skill identifier
@@ -52,9 +61,17 @@ function Skill.load(path)
   if meta == nil then
     error("Failed to parse SKILL.md frontmatter at " .. path)
   end
+
+  -- Get skill options by skill name from global config
+  local skill_name = vim.trim(meta.name)
+  local Extension = require("codecompanion._extensions.agentskills")
+  local global_opts = Extension.get_opts()
+  local skill_opts = global_opts.skill_opts and global_opts.skill_opts[skill_name]
+
   return setmetatable({
     path = path,
     meta = meta,
+    opts = vim.tbl_deep_extend("force", DEFAULT_SKILL_OPTS, skill_opts or {}),
   }, Skill)
 end
 
@@ -122,44 +139,30 @@ function Skill:read_file(path_in_skill)
   return vim.fn.readblob(self:_normalize_path_in_skill(path_in_skill))
 end
 
+---@param interpreter string
 ---@param script string
----@param args string[]
+---@param args? string[]
+---@param dependencies? string[]
 ---@param callback fun(ok: boolean, output_or_error: string)
-function Skill:run_script(script, args, callback)
-  local cmd = { self:_normalize_path_in_skill(script) }
+function Skill:run_script(interpreter, script, args, dependencies, callback)
+  local script_path = self:_normalize_path_in_skill(script)
+
+  -- Replace SKILL_DIR placeholder in arguments
   local placeholder_pattern = vim.pesc(self.SKILL_DIR_PLACEHOLDER)
+  local processed_args = {}
   for _, arg in ipairs(args or {}) do
-    arg = string.gsub(arg, placeholder_pattern, self.path)
-    table.insert(cmd, arg)
+    local new_arg = string.gsub(arg, placeholder_pattern, self.path)
+    table.insert(processed_args, new_arg)
   end
-  log:info("Running skill script: %s", cmd)
-  vim.system(cmd, {
-    stdout = true,
-    stderr = true,
-  }, function(out)
-    log:info("Skill script exited with code %d: %s", out.code, cmd)
-    callback = vim.schedule_wrap(callback)
-    if out.code == 0 then
-      callback(true, out.stdout)
-    else
-      local msg
-      if out.signal and out.signal ~= 0 then
-        msg = string.format("Script terminated with signal %d", out.signal)
-      else
-        msg = string.format("Script exited with code %d", out.code)
-      end
-      local output = { msg }
-      if out.stdout and out.stdout ~= "" then
-        table.insert(output, "Standard Output:")
-        table.insert(output, out.stdout)
-      end
-      if out.stderr and out.stderr ~= "" then
-        table.insert(output, "Standard Error:")
-        table.insert(output, out.stderr)
-      end
-      callback(false, table.concat(output, "\n"))
-    end
-  end)
+
+  require("codecompanion._extensions.agentskills.interpreter").run(
+    interpreter,
+    self,
+    script_path,
+    processed_args,
+    dependencies,
+    callback
+  )
 end
 
 return Skill
