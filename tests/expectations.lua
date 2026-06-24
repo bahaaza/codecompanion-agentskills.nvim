@@ -1,0 +1,71 @@
+-- Custom expectations for mini.test
+local H = {}
+
+H.expect = MiniTest.expect
+H.eq = MiniTest.expect.equality
+H.not_eq = MiniTest.expect.no_equality
+
+---Custom expectation: string contains pattern
+---@param pattern string
+---@param str string
+---@return boolean
+H.expect_contains = MiniTest.new_expectation("string contains", function(pattern, str)
+  if type(str) ~= "string" then
+    return false
+  end
+  return str:find(pattern, 1, true) ~= nil
+end, function(pattern, str)
+  return string.format(
+    "\nExpected string to contain:\n%s\n\nActual:\n%s",
+    vim.inspect(pattern),
+    type(str) == "string" and str or vim.inspect(str)
+  )
+end)
+
+---Custom expectation: truthy value
+---@param value any
+---@return boolean
+H.is_true = MiniTest.new_expectation("is true", function(value)
+  return value == true
+end, function(value)
+  return string.format(
+    "\nExpected: true\nActual: %s",
+    vim.inspect(value)
+  )
+end)
+
+---Custom expectation: falsy value
+---@param value any
+---@return boolean
+H.is_false = MiniTest.new_expectation("is false", function(value)
+  return value == false
+end, function(value)
+  return string.format(
+    "\nExpected: false\nActual: %s",
+    vim.inspect(value)
+  )
+end)
+
+---Custom expectation: table contains value
+---@param value any
+---@param tbl table
+---@return boolean
+H.expect_table_contains = MiniTest.new_expectation("table contains", function(value, tbl)
+  if type(tbl) ~= "table" then
+    return false
+  end
+  for _, v in ipairs(tbl) do
+    if v == value then
+      return true
+    end
+  end
+  return false
+end, function(value, tbl)
+  return string.format(
+    "\nExpected table to contain:\n%s\n\nActual:\n%s",
+    vim.inspect(value),
+    type(tbl) == "table" and vim.inspect(tbl) or vim.inspect(tbl)
+  )
+end)
+
+return H

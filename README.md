@@ -84,6 +84,7 @@ Any additional paths specified in `opts.paths` are scanned on top of these defau
 * Put skill directories in one of the [default paths](#default-skill-paths) or any path configured in `opts.paths`. Each skill directory must contain a `SKILL.md` file with YAML frontmatter.
 * Use `@{agent_skills}` tool group in your Chat. The LLM should activate skills when your task matches the skill's description. You can also explicitly ask the LLM to use a specific skill by name.
 * Type `/` in the chat buffer to invoke a skill as a slash command (e.g., `/my-skill`). Skills are automatically registered as slash commands unless `make_slash_commands` is set to `false`.
+* You can also use the editor context syntax `#{skill:<skill-name>}` to inject a skill explicitly into your chat buffer. *`@{agent_skills}` tool group is still required to ensure it functions properly*.
 
 ## SKILL.md Format
 
