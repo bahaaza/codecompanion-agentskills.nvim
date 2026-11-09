@@ -188,7 +188,7 @@ T["Extension.get_skills"]["returns discovered skills table"] = function()
   ]])
   local result = child.lua_get("_G.test_result")
 
-  h.eq({ "get-skills-test" }, result)
+  h.is_true(vim.list_contains(result, "get-skills-test"))
 
   h.cleanup_dir(temp_dir)
 end
@@ -436,7 +436,8 @@ T["editor_context"] = new_set()
 
 T["editor_context"]["setup registers skills as editor_context"] = function()
   local temp_dir = h.temp_dir()
-  local skill_md = h.make_skill_md("test-skill", "Test skill for editor_context", "# Test Skill Content")
+  local skill_md =
+    h.make_skill_md("test-skill", "Test skill for editor_context", "# Test Skill Content")
   h.create_test_skill(temp_dir, "test-skill", skill_md)
 
   setup_fresh({ paths = { temp_dir }, disable_demo_skill = true })
@@ -508,7 +509,11 @@ end
 
 T["editor_context"]["callback returns SKILL.md content"] = function()
   local temp_dir = h.temp_dir()
-  local skill_md = h.make_skill_md("callback-test", "Callback test skill", "# Callback Test Content\n\nThis is test content.")
+  local skill_md = h.make_skill_md(
+    "callback-test",
+    "Callback test skill",
+    "# Callback Test Content\n\nThis is test content."
+  )
   h.create_test_skill(temp_dir, "callback-test", skill_md)
 
   setup_fresh({ paths = { temp_dir }, disable_demo_skill = true })
@@ -529,7 +534,7 @@ T["editor_context"]["callback returns SKILL.md content"] = function()
   h.eq(true, result ~= nil)
   h.eq(true, result:find('<agent%-skill name="callback%-test">') ~= nil, "Should have opening tag")
   h.eq(true, result:find("Callback Test Content") ~= nil, "Should contain skill content")
-  h.eq(true, result:find('</agent%-skill>') ~= nil, "Should have closing tag")
+  h.eq(true, result:find("</agent%-skill>") ~= nil, "Should have closing tag")
 
   h.cleanup_dir(temp_dir)
 end
@@ -576,14 +581,17 @@ T["editor_context"]["register_editor_contexts clears old registrations"] = funct
   local skill_md2 = h.make_skill_md("new-skill", "New skill", "# New")
   h.create_test_skill(temp_dir2, "new-skill", skill_md2)
 
-  child.lua([[
+  child.lua(
+    [[
     local AS = require("codecompanion._extensions.agentskills")
     local opts = {
       paths = { ... },
       disable_demo_skill = true,
     }
     AS.setup(opts)
-  ]], { temp_dir2 })
+  ]],
+    { temp_dir2 }
+  )
 
   -- Verify old-skill is removed and new-skill is registered
   child.lua([[

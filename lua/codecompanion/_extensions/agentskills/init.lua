@@ -191,6 +191,22 @@ local function discover_skills()
     ::continue::
   end
 
+  if not current_opts.disable_demo_skill then
+    local demo_skill_path = vim.fs.joinpath(
+      vim.fn.fnamemodify(debug.getinfo(1, "S").source:sub(2), ":p:h:h:h:h:h"),
+      "demo-skill"
+    )
+    local ok, demo_skill = pcall(Skill.load, demo_skill_path)
+    if ok and demo_skill then
+      skills[demo_skill:name()] = demo_skill
+      log:info("Loaded built-in demo-skill from %s", demo_skill_path)
+    else
+      log:warn("Failed to load built-in demo-skill from %s: %s", demo_skill_path, demo_skill)
+    end
+  end
+
+  register_editor_contexts()
+
   if current_opts.notify_on_discovery then
     local skill_names = vim.tbl_keys(skills)
     if #skill_names > 0 then
@@ -220,45 +236,15 @@ function Extension.inject_skill_tools(chat, skill)
 
   local cc_config = require("codecompanion.config")
   local tools_config = cc_config.interactions.chat.tools
-  local in_use = chat.tool_registry.in_use
-
   for _, tool_name in ipairs(skill_tools) do
     if tools_config.groups[tool_name] then
-      -- Guard against duplicate group injection (upstream add_group lacks dedup)
-      local group_tools = tools_config.groups[tool_name].tools or {}
-      local all_loaded = #group_tools > 0
-      for _, t in ipairs(group_tools) do
-        if not in_use[t] then
-          all_loaded = false
-          break
-        end
-      end
-      if not all_loaded then
-        chat.tool_registry:add_group(tool_name, tools_config)
-      end
+      chat.tool_registry:add_group(tool_name, { config = tools_config })
     elseif tools_config[tool_name] then
-      -- Individual tools are already guarded by in_use in add()
-      chat.tool_registry:add(tool_name, tools_config[tool_name])
+      chat.tool_registry:add_single_tool(tool_name, { config = tools_config[tool_name] })
     else
       log:warn("Skill '%s' references unknown tool: %s", skill:name(), tool_name)
     end
   end
-
-  if not current_opts.disable_demo_skill then
-    local demo_skill_path = vim.fs.joinpath(
-      vim.fn.fnamemodify(debug.getinfo(1, "S").source:sub(2), ":p:h:h:h:h:h"),
-      "demo-skill"
-    )
-    local ok, demo_skill = pcall(Skill.load, demo_skill_path)
-    if ok and demo_skill then
-      skills[demo_skill:name()] = demo_skill
-      log:info("Loaded built-in demo-skill from %s", demo_skill_path)
-    else
-      log:warn("Failed to load built-in demo-skill from %s: %s", demo_skill_path, demo_skill)
-    end
-  end
-
-  register_editor_contexts()
 end
 
 ---@param opts CodeCompanion.AgentSkills.Opts

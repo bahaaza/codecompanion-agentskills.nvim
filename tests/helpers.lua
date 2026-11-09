@@ -104,15 +104,21 @@ function Helpers.assert_tool_schema(tool, expected)
 
   if expected.params then
     for _, param in ipairs(expected.params) do
-      Helpers.eq(true, tool.schema["function"].parameters.properties[param] ~= nil,
-        "Expected parameter: " .. param)
+      Helpers.eq(
+        true,
+        tool.schema["function"].parameters.properties[param] ~= nil,
+        "Expected parameter: " .. param
+      )
     end
   end
 
   if expected.required then
     for _, param in ipairs(expected.required) do
-      Helpers.eq(true, vim.list_contains(tool.schema["function"].parameters.required, param),
-        "Expected required parameter: " .. param)
+      Helpers.eq(
+        true,
+        vim.list_contains(tool.schema["function"].parameters.required, param),
+        "Expected required parameter: " .. param
+      )
     end
   end
 end
@@ -191,7 +197,8 @@ function Helpers.setup_chat_with_agentskills(child, opts)
   end
 
   -- Define adapter inline in child process (functions can't be serialized across process boundary)
-  child.lua([[
+  child.lua(
+    [[
     local temp_dir, skill_opts = ...
 
     -- Define custom adapter with parse_chat handler for tool_calls
@@ -206,26 +213,26 @@ function Helpers.setup_chat_with_agentskills(child, opts)
       schema = { model = { default = "test-model" } },
       handlers = {
         response = {
-          parse_chat = function(self, data, tools)
-            for _, tool in ipairs(data.tools or {}) do
-              table.insert(tools, tool)
+          parse_chat = function(self, args)
+            for _, tool in ipairs(args.data.tools or {}) do
+              table.insert(args.tools, tool)
             end
             return {
               status = "success",
-              output = { role = "assistant", content = data.content or "" },
+              output = { role = "assistant", content = args.data.content or "" },
             }
           end,
         },
         tools = {
-          format_calls = function(self, tools)
-            return tools
+          format_calls = function(self, args)
+            return args.tools
           end,
-          format_response = function(self, tool_call, output)
+          format_response = function(self, args)
             return {
               role = "tool",
-              tools = { call_id = tool_call.id },
-              content = output,
-              _meta = { tag = tool_call.id },
+              tools = { call_id = args.tool_call.id },
+              content = args.output,
+              _meta = { tag = args.tool_call.id },
               opts = { visible = false },
             }
           end,
@@ -267,7 +274,9 @@ function Helpers.setup_chat_with_agentskills(child, opts)
     end
 
     _G._test_chat = chat
-  ]], { temp_dir, skill_opts })
+  ]],
+    { temp_dir, skill_opts }
+  )
 
   -- Mock HTTP client
   Helpers.mock_http(child, "_G._test_chat.adapter")
@@ -297,12 +306,16 @@ function Helpers.wait_for_tool_completion(child, chat_var, timeout)
   chat_var = chat_var or "_G._test_chat"
   timeout = timeout or 2000
 
-  return child.lua(string.format([[
+  return child.lua(string.format(
+    [[
     local chat = %s
     return vim.wait(%d, function()
       return vim.bo[chat.bufnr].modifiable
     end)
-  ]], chat_var, timeout))
+  ]],
+    chat_var,
+    timeout
+  ))
 end
 
 ---Get tool output messages from chat
@@ -312,7 +325,8 @@ end
 function Helpers.get_tool_output_messages(child, chat_var)
   chat_var = chat_var or "_G._test_chat"
 
-  return child.lua(string.format([[
+  return child.lua(string.format(
+    [[
     local chat = %s
     if not chat or not chat.messages then
       return {}
@@ -325,7 +339,9 @@ function Helpers.get_tool_output_messages(child, chat_var)
       end
     end
     return result
-  ]], chat_var)) or {}
+  ]],
+    chat_var
+  )) or {}
 end
 
 return Helpers

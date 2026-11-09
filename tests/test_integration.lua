@@ -234,7 +234,11 @@ T["Chat Integration"]["run_skill_script success - script output in chat messages
     {
       ["function"] = {
         name = "run_skill_script",
-        arguments = { skill_name = "test-skill", script_path = "scripts/test.sh", interpreter = "bash" },
+        arguments = {
+          skill_name = "test-skill",
+          script_path = "scripts/test.sh",
+          interpreter = "bash",
+        },
       },
       id = "call_test_005",
       type = "function",
@@ -289,7 +293,11 @@ T["Chat Integration"]["run_skill_script error - error output in chat messages"] 
     {
       ["function"] = {
         name = "run_skill_script",
-        arguments = { skill_name = "test-skill", script_path = "scripts/fail.sh", interpreter = "bash" },
+        arguments = {
+          skill_name = "test-skill",
+          script_path = "scripts/fail.sh",
+          interpreter = "bash",
+        },
       },
       id = "call_test_006",
       type = "function",
@@ -377,6 +385,35 @@ end
 
 T["Editor Context"] = new_set()
 
+T["Chat Integration"]["skill tools are added once with the current registry API"] = function()
+  h.setup_chat_with_agentskills(child, { skills = {} })
+
+  local result = child.lua([[
+    local chat = _G._test_chat
+    local tools_config = require("codecompanion.config").interactions.chat.tools
+    tools_config.groups.skill_test_group = { tools = { "read_file" } }
+
+    local extension = require("codecompanion._extensions.agentskills")
+    local skill = {
+      tools = function() return { "read_file", "skill_test_group" } end,
+      name = function() return "skill-test" end,
+    }
+    extension.inject_skill_tools(chat, skill)
+    local first_count = vim.tbl_count(chat.tool_registry.in_use)
+    extension.inject_skill_tools(chat, skill)
+
+    return {
+      has_tool = chat.tool_registry.in_use.read_file == true,
+      has_group = chat.tool_registry.groups.skill_test_group ~= nil,
+      count_unchanged = first_count == vim.tbl_count(chat.tool_registry.in_use),
+    }
+  ]])
+
+  h.is_true(result.has_tool)
+  h.is_true(result.has_group)
+  h.is_true(result.count_unchanged)
+end
+
 T["Editor Context"]["#{skill:test-skill} injects SKILL.md content"] = function()
   -- Setup Chat with agentskills and a test skill
   h.setup_chat_with_agentskills(child, {
@@ -388,7 +425,7 @@ T["Editor Context"]["#{skill:test-skill} injects SKILL.md content"] = function()
     },
   })
 
--- Add a message with #{skill:test-skill} and parse editor context
+  -- Add a message with #{skill:test-skill} and parse editor context
   child.lua([[
     local chat = _G._test_chat
     -- Add user message with editor context
@@ -420,7 +457,7 @@ T["Editor Context"]["#{skill:test-skill} injects SKILL.md content"] = function()
   h.expect_contains('<agent-skill name="test-skill">', result.content)
   h.expect_contains("Test Skill Content", result.content)
   h.expect_contains("skill body for editor_context test", result.content)
-  h.expect_contains('</agent-skill>', result.content)
+  h.expect_contains("</agent-skill>", result.content)
   h.eq(false, result.visible, "Skill content message should be hidden")
 end
 
@@ -487,13 +524,22 @@ T["Editor Context"]["Extension.discover() updates editor_context registrations"]
   local temp_dir_b = h.temp_dir()
 
   -- Create skill A
-  h.create_test_skill(temp_dir_a, "skill-a", h.make_skill_md("skill-a", "Skill A", "# Skill A Content"))
+  h.create_test_skill(
+    temp_dir_a,
+    "skill-a",
+    h.make_skill_md("skill-a", "Skill A", "# Skill A Content")
+  )
 
   -- Create skill B
-  h.create_test_skill(temp_dir_b, "skill-b", h.make_skill_md("skill-b", "Skill B", "# Skill B Content"))
+  h.create_test_skill(
+    temp_dir_b,
+    "skill-b",
+    h.make_skill_md("skill-b", "Skill B", "# Skill B Content")
+  )
 
   -- Setup with skill A
-  child.lua([[
+  child.lua(
+    [[
     local temp_dir_a = ...
     local config = require("tests.config")
     config.extensions = config.extensions or {}
@@ -508,14 +554,20 @@ T["Editor Context"]["Extension.discover() updates editor_context registrations"]
     local config_after = require("codecompanion.config")
     _G.editor_context_a = config_after.interactions.shared.editor_context["skill:skill-a"] ~= nil
     _G.editor_context_b_before = config_after.interactions.shared.editor_context["skill:skill-b"] ~= nil
-  ]], { temp_dir_a })
+  ]],
+    { temp_dir_a }
+  )
 
   -- Verify skill A is registered
   h.is_true(child.lua_get([[_G.editor_context_a]]), "skill-a should be registered initially")
-  h.is_false(child.lua_get([[_G.editor_context_b_before]]), "skill-b should not be registered initially")
+  h.is_false(
+    child.lua_get([[_G.editor_context_b_before]]),
+    "skill-b should not be registered initially"
+  )
 
   -- Re-setup with skill B's path (this calls discover_skills internally)
-  child.lua([[
+  child.lua(
+    [[
     local temp_dir_b = ...
     local AS = require("codecompanion._extensions.agentskills")
     AS.setup({
@@ -526,11 +578,19 @@ T["Editor Context"]["Extension.discover() updates editor_context registrations"]
     local config_after = require("codecompanion.config")
     _G.editor_context_a_after = config_after.interactions.shared.editor_context["skill:skill-a"] ~= nil
     _G.editor_context_b_after = config_after.interactions.shared.editor_context["skill:skill-b"] ~= nil
-  ]], { temp_dir_b })
+  ]],
+    { temp_dir_b }
+  )
 
   -- Verify skill A is removed and skill B is added
-  h.is_false(child.lua_get([[_G.editor_context_a_after]]), "skill-a should be removed after discover")
-  h.is_true(child.lua_get([[_G.editor_context_b_after]]), "skill-b should be registered after discover")
+  h.is_false(
+    child.lua_get([[_G.editor_context_a_after]]),
+    "skill-a should be removed after discover"
+  )
+  h.is_true(
+    child.lua_get([[_G.editor_context_b_after]]),
+    "skill-b should be registered after discover"
+  )
 
   -- Cleanup
   h.cleanup_dir(temp_dir_a)

@@ -1,6 +1,7 @@
 local Tools = {}
 
 local Skill = require("codecompanion._extensions.agentskills.skill")
+local cc_compat = require("codecompanion._extensions.agentskills.cc_compat")
 
 local function make_system_prompt()
   local AS = require("codecompanion._extensions.agentskills")
@@ -85,8 +86,7 @@ function Tools.activate_skill()
           return { status = "error", data = "Skill not found: " .. args.skill_name }
         end
 
-        local skill_id =
-          string.format("<editor_context>skill:%s</editor_context>", args.skill_name)
+        local skill_id = string.format("<editor_context>skill:%s</editor_context>", args.skill_name)
         local context_items = (self and self.chat and self.chat.context_items) or {}
         for _, ctx in ipairs(context_items) do
           if ctx.id == skill_id then
@@ -107,7 +107,7 @@ function Tools.activate_skill()
         local AS = require("codecompanion._extensions.agentskills")
         local skill = output[#output] ---@type CodeCompanion.AgentSkills.Skill
         local for_user = string.format("Activated skill: %s", skill:name())
-        meta.tools.chat:add_tool_output(self, skill:read_content(), for_user)
+        cc_compat.add_tool_output(meta.tools.chat, self, skill:read_content(), for_user)
         AS.inject_skill_tools(meta.tools.chat, skill)
       end,
       error = function(self, output, meta)
@@ -116,7 +116,7 @@ function Tools.activate_skill()
           self.args.skill_name,
           output[#output]
         )
-        meta.tools.chat:add_tool_output(self, error_msg)
+        cc_compat.add_tool_output(meta.tools.chat, self, error_msg)
       end,
     },
   }
@@ -174,7 +174,7 @@ function Tools.load_skill_file()
           self.args.skill_name,
           self.args.file_path
         )
-        meta.tools.chat:add_tool_output(self, content, for_user)
+        cc_compat.add_tool_output(meta.tools.chat, self, content, for_user)
       end,
       error = function(self, output, meta)
         local error_msg = string.format(
@@ -183,7 +183,7 @@ function Tools.load_skill_file()
           self.args.file_path,
           output[#output]
         )
-        meta.tools.chat:add_tool_output(self, error_msg)
+        cc_compat.add_tool_output(meta.tools.chat, self, error_msg)
       end,
     },
   }
@@ -354,7 +354,7 @@ Note: Only interpreters that support dependencies can use the 'dependencies' par
         local output = output[#output]
         local argv = { self.args.interpreter, self.args.script_path, unpack(self.escaped_args) }
         local for_user = string.format("Run skill script successfully: %s", table.concat(argv, " "))
-        meta.tools.chat:add_tool_output(self, output, for_user)
+        cc_compat.add_tool_output(meta.tools.chat, self, output, for_user)
       end,
 
       error = function(self, output, meta)
@@ -365,7 +365,7 @@ Note: Only interpreters that support dependencies can use the 'dependencies' par
           table.concat(parts, " "),
           error_msg
         )
-        meta.tools.chat:add_tool_output(self, error_msg, for_user)
+        cc_compat.add_tool_output(meta.tools.chat, self, error_msg, for_user)
       end,
     },
   }

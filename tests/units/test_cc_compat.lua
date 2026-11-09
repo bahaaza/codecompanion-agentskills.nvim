@@ -301,4 +301,47 @@ T["CCCompat.decorate_tool"]["handles tool with empty cmds array for v18"] = func
   h.eq(0, result.cmds_count)
 end
 
+T["CCCompat.add_tool_output"] = new_set()
+
+T["CCCompat.add_tool_output"]["passes content in an options table for v20"] = function()
+  local result = child.lua([[
+    local cc = require("codecompanion")
+    local original_version = cc.version
+    cc.version = function() return "20.1.0" end
+    local chat = {
+      add_tool_output = function(_, tool, opts)
+        return { tool = tool, opts = opts }
+      end,
+    }
+    local output = require("codecompanion._extensions.agentskills.cc_compat")
+      .add_tool_output(chat, { name = "activate_skill" }, "skill body", "Activated skill")
+    cc.version = original_version
+    return output
+  ]])
+
+  h.eq("activate_skill", result.tool.name)
+  h.eq("skill body", result.opts.content)
+end
+
+T["CCCompat.add_tool_output"]["passes separate user text for v19"] = function()
+  local result = child.lua([[
+    local cc = require("codecompanion")
+    local original_version = cc.version
+    cc.version = function() return "19.12.0" end
+    local chat = {
+      add_tool_output = function(_, tool, content, for_user)
+        return { tool = tool, content = content, for_user = for_user }
+      end,
+    }
+    local output = require("codecompanion._extensions.agentskills.cc_compat")
+      .add_tool_output(chat, { name = "activate_skill" }, "skill body", "Activated skill")
+    cc.version = original_version
+    return output
+  ]])
+
+  h.eq("activate_skill", result.tool.name)
+  h.eq("skill body", result.content)
+  h.eq("Activated skill", result.for_user)
+end
+
 return T

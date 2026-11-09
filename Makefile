@@ -17,7 +17,7 @@ DEP_URL_codecompanion.nvim := https://github.com/olimorris/codecompanion.nvim
 DEP_COMMIT_mini.nvim ?= a995fe9cd4193fb492b5df69175a351a74b3d36b
 DEP_COMMIT_plenary.nvim ?= 50012918b2fc8357b87cff2a7f7f0446e47da174
 DEP_COMMIT_nvim-treesitter ?= 4916d6592ede8c07973490d9322f187e07dfefac
-DEP_COMMIT_codecompanion.nvim ?= f70759ee8b63b46ea0cf158dc22daa2a5e9c6319
+DEP_COMMIT_codecompanion.nvim ?= 117d57b604ac2125040baac9b8c3a67cc7281c8b
 
 # ============================================================
 # Dependency Mode

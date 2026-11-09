@@ -65,6 +65,7 @@ T["Tools"]["activate_skill returns skill on success"] = function()
       name = function(self) return "test-skill" end,
       description = function(self) return "A test skill" end,
       read_content = function(self) return "# Test Skill Content" end,
+      is_auto_invocation_disabled = function() return false end,
     }
 
     -- Mock the AS module FIRST (before loading tools)
@@ -104,10 +105,12 @@ T["Tools"]["activate_skill generates correct system_prompt"] = function()
       ["skill-a"] = {
         name = function(self) return "skill-a" end,
         description = function(self) return "First skill" end,
+        is_auto_invocation_disabled = function() return false end,
       },
       ["skill-b"] = {
         name = function(self) return "skill-b" end,
         description = function(self) return "Second skill" end,
+        is_auto_invocation_disabled = function() return false end,
       },
     }
 
@@ -163,6 +166,7 @@ T["Tools"]["activate_skill returns error when skill already in context"] = funct
       name = function(self) return "test-skill" end,
       description = function(self) return "A test skill" end,
       read_content = function(self) return "# Test Skill Content" end,
+      is_auto_invocation_disabled = function() return false end,
     }
 
     -- Mock the AS module
@@ -209,10 +213,12 @@ T["Tools"]["activate_skill succeeds when skill not in context"] = function()
       name = function(self) return "test-skill" end,
       description = function(self) return "A test skill" end,
       read_content = function(self) return "# Test Skill Content" end,
+      is_auto_invocation_disabled = function() return false end,
     }
     local other_skill = {
       name = function(self) return "other-skill" end,
       description = function(self) return "Another skill" end,
+      is_auto_invocation_disabled = function() return false end,
     }
 
     -- Mock the AS module
@@ -257,6 +263,7 @@ T["Tools"]["activate_skill succeeds when context_items is empty"] = function()
       name = function(self) return "test-skill" end,
       description = function(self) return "A test skill" end,
       read_content = function(self) return "# Test Skill Content" end,
+      is_auto_invocation_disabled = function() return false end,
     }
 
     -- Mock the AS module
@@ -299,6 +306,7 @@ T["Tools"]["activate_skill succeeds when context_items is nil"] = function()
       name = function(self) return "test-skill" end,
       description = function(self) return "A test skill" end,
       read_content = function(self) return "# Test Skill Content" end,
+      is_auto_invocation_disabled = function() return false end,
     }
 
     -- Mock the AS module
@@ -495,7 +503,8 @@ local missing_params_cases = {
 
 for _, case in ipairs(missing_params_cases) do
   T["Tools"]["run_skill_script validates missing " .. case.missing] = function()
-    local result = child.lua([[
+    local result = child.lua(
+      [[
       local case = ...
 
       -- Mock interpreters FIRST (before loading tools)
@@ -518,7 +527,9 @@ for _, case in ipairs(missing_params_cases) do
         status = output.status,
         data = output.data,
       }
-    ]], { case })
+    ]],
+      { case }
+    )
 
     h.eq("error", result.status)
     h.expect_contains("Missing required parameter", result.data)

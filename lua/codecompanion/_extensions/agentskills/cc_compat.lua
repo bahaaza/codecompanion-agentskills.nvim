@@ -1,5 +1,20 @@
 local CCCompat = {}
 
+---Add tool output using the CodeCompanion version's chat API.
+---@param chat CodeCompanion.Chat
+---@param tool table
+---@param content string
+---@param for_user? string
+function CCCompat.add_tool_output(chat, tool, content, for_user)
+  local version = require("codecompanion").version()
+  local major = version and tonumber(version:match("^(%d+)")) or 18
+  if major >= 20 then
+    return chat:add_tool_output(tool, { content = content })
+  else
+    return chat:add_tool_output(tool, content, for_user)
+  end
+end
+
 ---Decorate a tool definition factory to adapt callback signatures for different CodeCompanion versions.
 ---@param tool_fn fun(): table The tool constructor function
 ---@param version number CodeCompanion version number
